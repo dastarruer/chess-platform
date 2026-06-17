@@ -54,6 +54,7 @@
                   settings = {
                     allFeatures = true;
                     denyWarnings = true;
+                    extraArgs = "--manifest-path backend/Cargo.toml";
                   };
                 };
 
@@ -63,7 +64,11 @@
                     cargo = pkgs.rustToolchain;
                     rustfmt = pkgs.rustToolchain;
                   };
-                  settings.check = true;
+
+                  settings = {
+                    check = true;
+                    manifest-path = "backend/Cargo.toml";
+                  };
                 };
 
                 check-toml.enable = true;
