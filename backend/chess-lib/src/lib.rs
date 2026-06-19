@@ -1,5 +1,37 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+#![allow(dead_code)]
+
+/// A bitboard representation of a chessboard
+pub struct Chessboard {
+    bitboard: u64,
+}
+
+// This will be here for now methinks
+#[allow(clippy::derivable_impls)]
+impl Default for Chessboard {
+    fn default() -> Self {
+        Self {
+            bitboard: 0, // An empty board where all bits = 0
+        }
+    }
+}
+
+enum Color {
+    White,
+    Black,
+}
+
+enum PieceType {
+    King,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    Pawn,
+}
+
+struct Piece {
+    color: Color,
+    kind: PieceType,
 }
 
 #[cfg(test)]
@@ -7,8 +39,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn test_empty_board() {
+        let board = Chessboard::default();
+        assert_eq!(board.bitboard, 0);
     }
 }
