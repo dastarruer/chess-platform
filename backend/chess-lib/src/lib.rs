@@ -269,6 +269,26 @@ mod tests {
 
             assert_eq!(chessboard.to_string(), expected);
         }
+
+        #[test]
+        fn default_knight_board() {
+            let chessboard = Chessboard::default();
+            let expected = indoc! {r#"
+                01000010
+                00000000
+                00000000
+                00000000
+                00000000
+                00000000
+                00000000
+                01000010
+            "#};
+
+            assert_eq!(
+                chessboard.occupied_piece(PieceType::Knight).to_string(),
+                expected
+            );
+        }
     }
 
     mod bitboard {
