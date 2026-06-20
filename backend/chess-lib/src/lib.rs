@@ -4,12 +4,12 @@ use std::fmt::Display;
 
 /// A bitboard representation of a chessboard
 #[derive(Default)]
-pub struct Bitboard {
+struct Bitboard {
     bitboard: u64,
 }
 
 impl Bitboard {
-    pub fn new(bitboard: u64) -> Self {
+    fn new(bitboard: u64) -> Self {
         Self { bitboard }
     }
 }
