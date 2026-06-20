@@ -4,17 +4,17 @@ use std::fmt::Display;
 
 /// A bitboard representation of a chessboard
 #[derive(Default)]
-pub struct Chessboard {
+pub struct Bitboard {
     bitboard: u64,
 }
 
-impl Chessboard {
+impl Bitboard {
     pub fn new(bitboard: u64) -> Self {
         Self { bitboard }
     }
 }
 
-impl Display for Chessboard {
+impl Display for Bitboard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // We print rank 8 first, then rank 7, and so on. The convention with
         // bitboards is that the leftmost digit (most significant, 63rd bit)
@@ -66,7 +66,7 @@ mod tests {
 
     #[test]
     fn empty_board() {
-        let board = Chessboard::default();
+        let board = Bitboard::default();
         let expected = indoc! {r#"
             00000000
             00000000
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn single_piece() {
-        let board = Chessboard::new(268_435_456); // Place single piece on e4
+        let board = Bitboard::new(268_435_456); // Place single piece on e4
         let expected = indoc! {r#"
             00000000
             00000000
