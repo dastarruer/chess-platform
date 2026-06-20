@@ -5,7 +5,7 @@ use std::{
     ops::{BitOr, BitOrAssign},
 };
 
-use strum::EnumCount;
+use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
 pub struct Chessboard {
     pieces: [[Bitboard; PieceType::COUNT]; Side::COUNT],
@@ -64,7 +64,109 @@ impl Display for Chessboard {
     }
 }
 
-/// A bitboard representation of a chessboard
+#[derive(EnumCount, EnumIter, Clone, Copy)]
+#[repr(u8)]
+pub enum Square {
+    A1 = 0,
+    B1,
+    C1,
+    D1,
+    E1,
+    F1,
+    G1,
+    H1,
+    A2,
+    B2,
+    C2,
+    D2,
+    E2,
+    F2,
+    G2,
+    H2,
+    A3,
+    B3,
+    C3,
+    D3,
+    E3,
+    F3,
+    G3,
+    H3,
+    A4,
+    B4,
+    C4,
+    D4,
+    E4,
+    F4,
+    G4,
+    H4,
+    A5,
+    B5,
+    C5,
+    D5,
+    E5,
+    F5,
+    G5,
+    H5,
+    A6,
+    B6,
+    C6,
+    D6,
+    E6,
+    F6,
+    G6,
+    H6,
+    A7,
+    B7,
+    C7,
+    D7,
+    E7,
+    F7,
+    G7,
+    H7,
+    A8,
+    B8,
+    C8,
+    D8,
+    E8,
+    F8,
+    G8,
+    H8,
+}
+
+impl Square {
+    /// Generate a bit mask where only the bit corresponding to the value of
+    /// the [`Square`] is set.
+    ///
+    /// For example:
+    ///
+    /// ```rust
+    /// # use chess_lib::Square;
+    /// let square = Square::E4;
+    /// let mask = square.mask();
+    ///
+    /// assert_eq!(mask, 1u64 << 28);
+    /// ```
+    ///
+    /// Visually, this mask would look like this:
+    ///
+    /// ```plaintext
+    /// 00000000
+    /// 00000000
+    /// 00000000
+    /// 00000000
+    /// 00001000
+    /// 00000000
+    /// 00000000
+    /// 00000000
+    /// ```
+    ///
+    /// Where E4 is the only bit set.
+    pub const fn mask(self) -> u64 {
+        1u64 << (self as u8)
+    }
+}
+
+/// A bitboard representation of a chessboard.
 #[derive(Default, Clone, Copy)]
 struct Bitboard {
     bitboard: u64,
@@ -78,22 +180,17 @@ impl Bitboard {
 
 impl Display for Bitboard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // We print rank 8 first, then rank 7, and so on. The convention with
-        // bitboards is that the leftmost digit (most significant, 63rd bit)
-        // represents h8, and the righmost digit (least significant, 1st bit)
-        // represents a1.
-        for rank in (0..8).rev() {
-            // We don't reverse this since we want to print from a to h, not h
-            // to a
-            for file in 0..8 {
-                let square = rank * 8 + file;
-                let mask = 1u64 << square;
-
+        // Chunk each square into individual ranks (rows in chess lingo)
+        // Reverse so 1st file (colums in chess lingo) is printed first
+        for rank in Square::iter().collect::<Vec<Square>>().chunks(8).rev() {
+            for square in rank {
                 // If the bit is not equal to 1, the bit must be 0
-                let bit = ((self.bitboard & mask) != 0) as u8;
+                let bit = ((self.bitboard & square.mask()) != 0) as u8;
 
                 write!(f, "{}", bit)?;
             }
+
+            // Every 8 bits, add a newline
             writeln!(f)?;
         }
 
@@ -189,6 +286,27 @@ mod tests {
                 00000000
                 00000000
                 00000000
+            "#};
+
+            assert_eq!(board.to_string(), expected);
+        }
+
+        #[test]
+        fn board_corners_no_flip() {
+            let a8_mask = Square::A8.mask();
+            let h1_mask = Square::H1.mask();
+
+            let board = Bitboard::new(a8_mask | h1_mask);
+
+            let expected = indoc! {r#"
+                10000000
+                00000000
+                00000000
+                00000000
+                00000000
+                00000000
+                00000000
+                00000001
             "#};
 
             assert_eq!(board.to_string(), expected);
