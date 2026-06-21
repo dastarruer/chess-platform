@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+mod moves;
+
 use std::{
     fmt::Display,
     ops::{BitOr, BitOrAssign},
