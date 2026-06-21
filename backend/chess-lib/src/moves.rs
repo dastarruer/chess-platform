@@ -4,13 +4,18 @@ use crate::{Bitboard, Square};
 
 struct MoveGenerator {
     knight_moves: [Bitboard; Square::COUNT],
+    king_moves: [Bitboard; Square::COUNT],
 }
 
 impl MoveGenerator {
     fn new() -> Self {
         let knight_moves = KnightJump::precalculate_piece_moves();
+        let king_moves = KingMove::precalculate_piece_moves();
 
-        MoveGenerator { knight_moves }
+        MoveGenerator {
+            knight_moves,
+            king_moves,
+        }
     }
 }
 
@@ -52,6 +57,40 @@ where
         }
 
         piece_moves
+    }
+}
+
+#[derive(Debug, Clone, Copy, EnumIter)]
+#[repr(i8)]
+/// Store bit shift offset values for each possible king move.
+enum KingMove {
+    North = 8,
+    South = -8,
+    East = 1,
+    West = -1,
+    NorthWest = 7,
+    SouthEast = -7,
+    NorthEast = 9,
+    SouthWest = -9,
+}
+
+impl NonSlidingPieceMove for KingMove {
+    fn offset(&self) -> i8 {
+        *self as i8
+    }
+
+    fn file_mask(&self) -> u64 {
+        const A_FILE: u64 = 0xFEFEFEFEFEFEFEFE;
+        const H_FILE: u64 = 0x7F7F7F7F7F7F7F7F;
+
+        match self {
+            KingMove::East | KingMove::NorthEast | KingMove::SouthEast => A_FILE,
+            KingMove::West | KingMove::NorthWest | KingMove::SouthWest => H_FILE,
+
+            // King has no potential wraparound moves, so return
+            // u64 with all bits set to 1
+            _ => u64::MAX,
+        }
     }
 }
 
@@ -165,5 +204,52 @@ mod tests {
         assert!(a4_attacks.is_set(Square::C5));
         assert!(a4_attacks.is_set(Square::C3));
         assert!(a4_attacks.is_set(Square::B2));
+    }
+
+    #[test]
+    fn king_moves() {
+        let generator = MoveGenerator::new();
+
+        // --- Case 1: Center Square (E4) ---
+        // A King on E4 should access all 8 surrounding squares:
+        // D5, E5, F5, D4, F4, D3, E3, F3
+        let e4_attacks = generator.king_moves[Square::E4 as usize];
+        assert_eq!(e4_attacks.count_ones(), 8, "King on E4 should have 8 moves");
+        assert!(e4_attacks.is_set(Square::D5));
+        assert!(e4_attacks.is_set(Square::E5));
+        assert!(e4_attacks.is_set(Square::F3));
+
+        // --- Case 2: Corner Square (A1) ---
+        // Restricted to 3 moves: A2, B2, B1.
+        // West/Southwards moves should be perfectly blocked by boundaries.
+        let a1_attacks = generator.king_moves[Square::A1 as usize];
+        assert_eq!(
+            a1_attacks.count_ones(),
+            3,
+            "King on A1 should only have 3 moves"
+        );
+        assert!(a1_attacks.is_set(Square::A2));
+        assert!(a1_attacks.is_set(Square::B2));
+        assert!(a1_attacks.is_set(Square::B1));
+
+        // Assert it didn't wrap horizontally to the H-file
+        assert!(!a1_attacks.is_set(Square::H1));
+        assert!(!a1_attacks.is_set(Square::H2));
+
+        // --- Case 3: Edge Square (H4) ---
+        // Restricted to 5 moves: H5, G5, G4, G3, H3.
+        // Eastward moves must be caught by the A_FILE mask.
+        let h4_attacks = generator.king_moves[Square::H4 as usize];
+        assert_eq!(
+            h4_attacks.count_ones(),
+            5,
+            "King on H4 should only have 5 moves"
+        );
+        assert!(h4_attacks.is_set(Square::H5));
+        assert!(h4_attacks.is_set(Square::G4));
+
+        // Assert it didn't wrap to the A-file
+        assert!(!h4_attacks.is_set(Square::A4));
+        assert!(!h4_attacks.is_set(Square::A5));
     }
 }
