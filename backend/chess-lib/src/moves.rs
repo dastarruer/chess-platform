@@ -8,28 +8,50 @@ struct MoveGenerator {
 
 impl MoveGenerator {
     fn new() -> Self {
-        let knight_moves = Self::precalculate_knight_moves();
+        let knight_moves = KnightJump::precalculate_piece_moves();
 
         MoveGenerator { knight_moves }
     }
+}
 
-    fn precalculate_knight_moves() -> [Bitboard; Square::COUNT] {
-        let mut knight_moves = [Bitboard::empty(); Square::COUNT];
+trait NonSlidingPieceMove
+where
+    Self: IntoEnumIterator + Copy,
+{
+    /// Return the bit offset of the move.
+    fn offset(&self) -> i8;
+
+    /// Generate the required mask to filter illegal wraparound moves.
+    fn file_mask(&self) -> u64;
+
+    /// Shift a bit mask by the offset of the move.
+    fn shift(&self, mask: u64) -> u64 {
+        let shift = self.offset();
+
+        if shift.is_negative() {
+            return mask >> shift.unsigned_abs();
+        }
+        mask << shift
+    }
+
+    fn precalculate_piece_moves() -> [Bitboard; Square::COUNT] {
+        let mut piece_moves = [Bitboard::empty(); Square::COUNT];
 
         for square in Square::iter() {
             let mut moves = Bitboard::empty();
-            let knight_mask = square.mask();
+            let piece_mask = square.mask();
 
-            for jump in KnightJump::iter() {
-                let jump_mask = Bitboard::new(jump.shift(knight_mask) & jump.file_mask());
+            for piece_move in Self::iter() {
+                let jump_mask =
+                    Bitboard::new(piece_move.shift(piece_mask) & piece_move.file_mask());
 
                 moves |= jump_mask;
             }
 
-            knight_moves[square as usize] = moves;
+            piece_moves[square as usize] = moves;
         }
 
-        knight_moves
+        piece_moves
     }
 }
 
@@ -48,18 +70,11 @@ enum KnightJump {
     TwoLeftOneDown = -10,
 }
 
-impl KnightJump {
-    /// Shift a bit mask by the offset of the jump.
-    fn shift(&self, mask: u64) -> u64 {
-        let shift = *self as i8;
-
-        if shift.is_negative() {
-            return mask >> shift.abs();
-        }
-        mask << shift
+impl NonSlidingPieceMove for KnightJump {
+    fn offset(&self) -> i8 {
+        *self as i8
     }
 
-    /// Generate the required mask to filter illegal wraparound moves.
     fn file_mask(&self) -> u64 {
         // Masks for files on the edge of the board
         //
