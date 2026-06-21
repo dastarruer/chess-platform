@@ -12,9 +12,22 @@ pub struct Chessboard {
 }
 
 impl Chessboard {
-    /// Get all squares occupied by pieces
+    /// Return a `Bitboard` containing squares occupied by a specific piece
+    /// type.
+    fn occupied_piece(&self, piece: PieceType) -> Bitboard {
+        let mut board = Bitboard::empty();
+
+        for side_idx in 0..Side::COUNT {
+            let piece_board = self.pieces[side_idx][piece as usize];
+            board |= piece_board;
+        }
+
+        board
+    }
+
+    /// Return a `Bitboard` containing squares occupied by all pieces.
     fn occupied(&self) -> Bitboard {
-        let mut board = Bitboard::new(0);
+        let mut board = Bitboard::empty();
 
         for piece_board in self.pieces.as_flattened() {
             board |= *piece_board;
@@ -27,7 +40,7 @@ impl Chessboard {
 impl Default for Chessboard {
     /// Create a new chessboard set in the starting position.
     fn default() -> Self {
-        let mut pieces = [[Bitboard::new(0); PieceType::COUNT]; Side::COUNT];
+        let mut pieces = [[Bitboard::empty(); PieceType::COUNT]; Side::COUNT];
 
         let w = Side::White as usize;
         let b = Side::Black as usize;
@@ -176,6 +189,10 @@ impl Bitboard {
     fn new(bitboard: u64) -> Self {
         Self { bitboard }
     }
+
+    fn empty() -> Self {
+        Self { bitboard: 0 }
+    }
 }
 
 impl Display for Bitboard {
@@ -218,7 +235,7 @@ enum Side {
     Black = 1,
 }
 
-#[derive(EnumCount)]
+#[derive(EnumCount, Clone, Copy)]
 enum PieceType {
     King = 0,
     Knight = 1,
