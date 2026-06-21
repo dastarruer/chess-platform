@@ -33,6 +33,24 @@ impl MoveGenerator {
     }
 }
 
+trait NonSlidingPieceMove {
+    /// Return the bit offset of the move.
+    fn offset(&self) -> i8;
+
+    /// Generate the required mask to filter illegal wraparound moves.
+    fn file_mask(&self) -> u64;
+
+    /// Shift a bit mask by the offset of the move.
+    fn shift(&self, mask: u64) -> u64 {
+        let shift = self.offset();
+
+        if shift.is_negative() {
+            return mask >> shift.unsigned_abs();
+        }
+        mask << shift
+    }
+}
+
 #[derive(Debug, Clone, Copy, EnumIter)]
 #[repr(i8)]
 #[allow(clippy::enum_variant_names)]
@@ -48,18 +66,11 @@ enum KnightJump {
     TwoLeftOneDown = -10,
 }
 
-impl KnightJump {
-    /// Shift a bit mask by the offset of the jump.
-    fn shift(&self, mask: u64) -> u64 {
-        let shift = *self as i8;
-
-        if shift.is_negative() {
-            return mask >> shift.abs();
-        }
-        mask << shift
+impl NonSlidingPieceMove for KnightJump {
+    fn offset(&self) -> i8 {
+        *self as i8
     }
 
-    /// Generate the required mask to filter illegal wraparound moves.
     fn file_mask(&self) -> u64 {
         // Masks for files on the edge of the board
         //
