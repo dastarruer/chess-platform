@@ -4,7 +4,7 @@ mod moves;
 
 use std::{
     fmt::Display,
-    ops::{BitOr, BitOrAssign},
+    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
 };
 
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
@@ -195,6 +195,16 @@ impl Bitboard {
     fn empty() -> Self {
         Self { bitboard: 0 }
     }
+
+    #[cfg(test)]
+    fn is_set(&self, square: Square) -> bool {
+        self.bitboard & square.mask() != 0
+    }
+
+    #[cfg(test)]
+    fn count_ones(&self) -> u32 {
+        self.bitboard.count_ones()
+    }
 }
 
 impl Display for Bitboard {
@@ -228,6 +238,20 @@ impl BitOr for Bitboard {
 
     fn bitor(self, rhs: Self) -> Self::Output {
         Bitboard::new(self.bitboard | rhs.bitboard)
+    }
+}
+
+impl BitAnd for Bitboard {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Bitboard::new(self.bitboard & rhs.bitboard)
+    }
+}
+
+impl BitAndAssign for Bitboard {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.bitboard &= rhs.bitboard
     }
 }
 
