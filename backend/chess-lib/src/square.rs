@@ -1,6 +1,6 @@
-use strum::{EnumCount, EnumIter};
+use strum::{EnumCount, EnumIter, FromRepr};
 
-#[derive(EnumCount, EnumIter, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(EnumCount, EnumIter, Clone, Copy, PartialEq, Eq, Debug, FromRepr)]
 #[repr(u8)]
 pub enum Square {
     A1 = 0,
@@ -99,5 +99,59 @@ impl Square {
     /// Where E4 is the only bit set.
     pub const fn mask(self) -> u64 {
         1u64 << (self as u8)
+    }
+
+    pub fn from_coordinates(file: File, rank: Rank) -> Self {
+        Self::from_repr((rank as u8 * 8) + file as u8).expect("Coordinates should not be invalid")
+    }
+}
+
+#[repr(u8)]
+pub enum File {
+    A = 0,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+}
+
+#[repr(u8)]
+pub enum Rank {
+    R1 = 0,
+    R2,
+    R3,
+    R4,
+    R5,
+    R6,
+    R7,
+    R8,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_coordinates() {
+        let file = File::A;
+        let rank = Rank::R1;
+        let expected = Square::A1;
+
+        assert_eq!(Square::from_coordinates(file, rank), expected);
+
+        let file = File::C;
+        let rank = Rank::R5;
+        let expected = Square::C5;
+
+        assert_eq!(Square::from_coordinates(file, rank), expected);
+
+        let file = File::H;
+        let rank = Rank::R8;
+        let expected = Square::H8;
+
+        assert_eq!(Square::from_coordinates(file, rank), expected);
     }
 }
