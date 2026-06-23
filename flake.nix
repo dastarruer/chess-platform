@@ -65,10 +65,7 @@
                     rustfmt = pkgs.rustToolchain;
                   };
 
-                  settings = {
-                    check = true;
-                    manifest-path = "backend/Cargo.toml";
-                  };
+                  settings.manifest-path = "backend/Cargo.toml";
                 };
 
                 check-toml.enable = true;
