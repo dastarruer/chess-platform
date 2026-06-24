@@ -157,7 +157,7 @@ impl BitAndAssign for Bitboard {
     }
 }
 
-#[derive(EnumCount)]
+#[derive(EnumCount, Debug, Eq, PartialEq)]
 enum Side {
     White = 0,
     Black = 1,
