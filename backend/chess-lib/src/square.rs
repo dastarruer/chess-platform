@@ -107,6 +107,30 @@ impl Square {
     }
 }
 
+impl TryFrom<&str> for Square {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        if value.len() != 2 {
+            return Err(anyhow!("'{value}' is an invalid square"));
+        }
+
+        let mut chars = value.chars();
+        let file = File::try_from(
+            chars
+                .next()
+                .expect("Square should have at least two characters"),
+        )?;
+        let rank = Rank::try_from(
+            chars
+                .next()
+                .expect("Square should have at least two characters"),
+        )?;
+
+        Ok(Square::from_coordinates(file, rank))
+    }
+}
+
 /// Provides a mechanism to advance an enum variant forward by a specific
 /// offset.
 ///
@@ -208,6 +232,23 @@ impl From<File> for u8 {
     }
 }
 
+impl TryFrom<char> for File {
+    type Error = anyhow::Error;
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value.to_ascii_lowercase() {
+            'a' => Ok(Self::A),
+            'b' => Ok(Self::B),
+            'c' => Ok(Self::C),
+            'd' => Ok(Self::D),
+            'e' => Ok(Self::E),
+            'f' => Ok(Self::F),
+            'g' => Ok(Self::G),
+            'h' => Ok(Self::H),
+            _ => Err(anyhow!("'{value}' is not a valid file")),
+        }
+    }
+}
+
 impl TryNext for File {}
 impl TryPrevious for File {}
 
@@ -228,6 +269,23 @@ impl TryFrom<u8> for Rank {
     type Error = anyhow::Error;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         Rank::from_repr(value).with_context(|| format!("Unable to convert {value} to Rank"))
+    }
+}
+
+impl TryFrom<char> for Rank {
+    type Error = anyhow::Error;
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value.to_ascii_lowercase() {
+            '1' => Ok(Self::R1),
+            '2' => Ok(Self::R2),
+            '3' => Ok(Self::R3),
+            '4' => Ok(Self::R4),
+            '5' => Ok(Self::R5),
+            '6' => Ok(Self::R6),
+            '7' => Ok(Self::R7),
+            '8' => Ok(Self::R8),
+            _ => Err(anyhow!("'{value}' is not a valid rank")),
+        }
     }
 }
 
