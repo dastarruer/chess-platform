@@ -157,6 +157,28 @@ impl BitAndAssign for Bitboard {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct GameStats {
+    active_color: Side,
+    castle_rights: [CastleRights; Side::COUNT],
+    en_passant_target: Option<Square>,
+
+    /// Number of moves made in a row by each side without any pawn advances or
+    /// piece captures.
+    ///
+    /// For instance, if white makes one move, and black makes another, each
+    /// made without capturing a piece or moving a pawn, two halfmoves have
+    /// been made. This is used to enforce the 50-move rule, which ends the
+    /// game in a draw after 100 halfmoves.
+    halfmoves: u8,
+
+    /// Number of completed turns in the game.
+    ///
+    /// For instance, if white makes one move, and black makes another, one
+    /// fullmove has been made.
+    fullmoves: u16,
+}
+
 #[derive(EnumCount, Debug, Eq, PartialEq, Clone, Copy)]
 enum Side {
     White = 0,
