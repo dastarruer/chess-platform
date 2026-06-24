@@ -157,7 +157,7 @@ impl BitAndAssign for Bitboard {
     }
 }
 
-#[derive(EnumCount, Debug, Eq, PartialEq)]
+#[derive(EnumCount, Debug, Eq, PartialEq, Clone, Copy)]
 enum Side {
     White = 0,
     Black = 1,
@@ -171,6 +171,14 @@ enum PieceType {
     Rook = 3,
     Queen = 4,
     Pawn = 5,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum CastleRights {
+    King,
+    Queen,
+    KingQueen,
+    Neither,
 }
 
 #[cfg(test)]

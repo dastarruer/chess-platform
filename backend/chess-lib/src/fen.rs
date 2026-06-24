@@ -2,7 +2,7 @@ use anyhow::{Context, anyhow};
 use strum::EnumCount;
 
 use crate::{
-    PieceType, Side, Square,
+    CastleRights, PieceType, Side, Square,
     square::{File, Rank, TryNext, TryPrevious},
 };
 
@@ -22,6 +22,9 @@ impl FENString {
 
         let active_color = fields.next().context("FEN string is incomplete")?;
         let _active_color = Self::try_parse_active_color(active_color)?;
+
+        let castle_rights = fields.next().context("FEN string is incomplete")?;
+        let _castle_rights = Self::try_parse_castle_rights(castle_rights)?;
 
         Ok(Self { piece_positions })
     }
@@ -87,6 +90,93 @@ impl FENString {
             _ => Err(anyhow!(
                 "FEN string contains invalid active color char '{active_color}"
             )),
+        }
+    }
+
+    fn try_parse_castle_rights(
+        castle_rights_field: &str,
+    ) -> anyhow::Result<[CastleRights; Side::COUNT]> {
+        if castle_rights_field.len() > 4 || castle_rights_field.is_empty() {
+            return Err(anyhow!(
+                "FEN castle rights field '{castle_rights_field}' length is invalid"
+            ));
+        }
+
+        let mut castle_rights = [CastleRights::Neither; Side::COUNT];
+        let mut prev_fen_char = FENCastleChars::Neither;
+        for char in castle_rights_field.chars() {
+            let fen_char = FENCastleChars::try_from(char)?;
+
+            // Filter out strings like 'KkQq' which is invalid
+            match (&fen_char, &prev_fen_char) {
+                (FENCastleChars::King(side), FENCastleChars::King(prev_side))
+                | (FENCastleChars::Queen(side), FENCastleChars::Queen(prev_side))
+                    if prev_side != side =>
+                {
+                    return Err(anyhow!(
+                        "FEN castle rights field '{castle_rights_field}' is invalid"
+                    ));
+                }
+                _ => {}
+            }
+
+            match fen_char {
+                FENCastleChars::Neither if castle_rights_field.len() == 1 => break,
+                FENCastleChars::Neither => {
+                    return Err(anyhow!(
+                        "FEN castle rights field '{castle_rights_field}' is invalid"
+                    ));
+                }
+                FENCastleChars::King(side) => {
+                    let rights = &mut castle_rights[side as usize];
+                    *rights = match *rights {
+                        CastleRights::Neither => CastleRights::King,
+                        _ => {
+                            return Err(anyhow!(
+                                "FEN castle rights field '{castle_rights_field}' is invalid"
+                            ));
+                        }
+                    };
+                }
+                FENCastleChars::Queen(side) => {
+                    let rights = &mut castle_rights[side as usize];
+                    *rights = match *rights {
+                        CastleRights::Neither => CastleRights::Queen,
+                        CastleRights::King => CastleRights::KingQueen,
+                        _ => {
+                            return Err(anyhow!(
+                                "FEN castle rights field '{castle_rights_field}' is invalid"
+                            ));
+                        }
+                    };
+                }
+            }
+
+            prev_fen_char = fen_char;
+        }
+
+        Ok(castle_rights)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum FENCastleChars {
+    King(Side),
+    Queen(Side),
+    Neither,
+}
+
+impl TryFrom<char> for FENCastleChars {
+    type Error = anyhow::Error;
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
+            'q' => Ok(Self::Queen(Side::Black)),
+            'k' => Ok(Self::King(Side::Black)),
+            'Q' => Ok(Self::Queen(Side::White)),
+            'K' => Ok(Self::King(Side::White)),
+            '-' => Ok(Self::Neither),
+            _ => Err(anyhow!("Invalid FEN castle char '{value}'")),
         }
     }
 }
@@ -194,5 +284,57 @@ mod tests {
 
         let active_color = "bw";
         assert!(FENString::try_parse_active_color(active_color).is_err());
+    }
+
+    #[test]
+    fn castle_rights() {
+        let castle_rights_field = "KQkq";
+        let expected = [CastleRights::KingQueen, CastleRights::KingQueen];
+        assert_eq!(
+            FENString::try_parse_castle_rights(castle_rights_field)
+                .expect("Parsing valid castle rights field should not throw an error"),
+            expected
+        );
+
+        let castle_rights_field = "KQkq";
+        let expected = [CastleRights::KingQueen, CastleRights::KingQueen];
+        assert_eq!(
+            FENString::try_parse_castle_rights(castle_rights_field)
+                .expect("Parsing valid castle rights field should not throw an error"),
+            expected
+        );
+
+        let castle_rights_field = "-";
+        let expected = [CastleRights::Neither, CastleRights::Neither];
+        assert_eq!(
+            FENString::try_parse_castle_rights(castle_rights_field)
+                .expect("Parsing valid castle rights field should not throw an error"),
+            expected
+        );
+
+        let castle_rights_field = "KQkqq";
+        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+
+        let castle_rights_field = "WQkq";
+        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+
+        let castle_rights_field = "-K";
+        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+
+        // Castle rights should follow 'King Queen' order
+        let castle_rights_field = "QKqk";
+        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+
+        let castle_rights_field = "KkQq";
+        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+
+        let castle_rights_field = "KKQQ";
+        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+
+        let castle_rights_field = "QK";
+        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+
+        let castle_rights_field = "";
+        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
     }
 }
