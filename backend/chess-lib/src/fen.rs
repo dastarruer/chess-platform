@@ -32,6 +32,9 @@ impl FENString {
         let halfmoves = fields.next().context("FEN string is incomplete")?;
         let _halfmoves = Self::try_parse_halfmoves(halfmoves)?;
 
+        let fullmoves = fields.next().context("FEN string is incomplete")?;
+        let _fullmoves = Self::try_parse_fullmoves(fullmoves)?;
+
         Ok(Self { piece_positions })
     }
 
@@ -185,6 +188,18 @@ impl FENString {
         }
 
         Ok(halfmoves)
+    }
+
+    fn try_parse_fullmoves(fullmoves: &str) -> anyhow::Result<u16> {
+        let fullmoves = fullmoves
+            .parse::<u16>()
+            .with_context(|| format!("FEN fullmoves field is invalid: {fullmoves}"))?;
+
+        if fullmoves == 0 {
+            return Err(anyhow!("Number of fullmoves cannot equal 0: {fullmoves}"));
+        }
+
+        Ok(fullmoves)
     }
 }
 
@@ -441,5 +456,33 @@ mod tests {
         assert!(FENString::try_parse_halfmoves("12.5").is_err());
         assert!(FENString::try_parse_halfmoves("abc").is_err());
         assert!(FENString::try_parse_halfmoves("").is_err());
+    }
+
+    #[test]
+    fn fullmoves() {
+        assert_eq!(
+            FENString::try_parse_fullmoves("1").expect("Should parse fullmove 1"),
+            1
+        );
+
+        assert_eq!(
+            FENString::try_parse_fullmoves("45").expect("Should parse fullmove 45"),
+            45
+        );
+
+        assert_eq!(
+            FENString::try_parse_fullmoves("350").expect("Should parse fullmove 350"),
+            350
+        );
+
+        // A fullmove count of 0 is physically impossible in chess notation
+        assert!(FENString::try_parse_fullmoves("0").is_err());
+
+        // Value exceeds a u16
+        assert!(FENString::try_parse_fullmoves("70000").is_err());
+
+        assert!(FENString::try_parse_fullmoves("-1").is_err());
+        assert!(FENString::try_parse_fullmoves("twelve").is_err());
+        assert!(FENString::try_parse_fullmoves("").is_err());
     }
 }
