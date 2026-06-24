@@ -26,6 +26,9 @@ impl FENString {
         let castle_rights = fields.next().context("FEN string is incomplete")?;
         let _castle_rights = Self::try_parse_castle_rights(castle_rights)?;
 
+        let en_passant_target = fields.next().context("FEN string is incomplete")?;
+        let _en_passant_target = Self::try_parse_en_passant_target(en_passant_target)?;
+
         Ok(Self { piece_positions })
     }
 
@@ -156,6 +159,14 @@ impl FENString {
         }
 
         Ok(castle_rights)
+    }
+
+    fn try_parse_en_passant_target(en_passant_target: &str) -> anyhow::Result<Option<Square>> {
+        if en_passant_target == "-" {
+            return Ok(None);
+        }
+
+        Ok(Some(Square::try_from(en_passant_target)?))
     }
 }
 
@@ -336,5 +347,54 @@ mod tests {
 
         let castle_rights_field = "";
         assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+    }
+
+    #[test]
+    fn en_passant_target() {
+        // --- Valid Targets ---
+        // An en passant target square on e3 (White just moved e2-e4)
+        let target = "e3";
+        let expected = Some(Square::E3);
+        assert_eq!(
+            FENString::try_parse_en_passant_target(target)
+                .expect("Parsing 'e3' en passant target should succeed"),
+            expected
+        );
+
+        // An en passant target square on c6 (Black just moved c7-c5)
+        let target = "c6";
+        let expected = Some(Square::C6);
+        assert_eq!(
+            FENString::try_parse_en_passant_target(target)
+                .expect("Parsing 'c6' en passant target should succeed"),
+            expected
+        );
+
+        // --- Empty State ---
+        // No en passant target available (the most common state, represented by '-')
+        let target = "-";
+        let expected = None;
+        assert_eq!(
+            FENString::try_parse_en_passant_target(target)
+                .expect("Parsing '-' en passant target should return None safely"),
+            expected
+        );
+
+        // --- Invalid Bounds & Formats ---
+        // Completely invalid file/rank characters
+        let target = "z3";
+        assert!(FENString::try_parse_en_passant_target(target).is_err());
+
+        // Valid file but completely out-of-bounds rank for chess coordinates
+        let target = "e9";
+        assert!(FENString::try_parse_en_passant_target(target).is_err());
+
+        // Field string is too long to be a single coordinate square
+        let target = "e3e4";
+        assert!(FENString::try_parse_en_passant_target(target).is_err());
+
+        // Field string is empty
+        let target = "";
+        assert!(FENString::try_parse_en_passant_target(target).is_err());
     }
 }
