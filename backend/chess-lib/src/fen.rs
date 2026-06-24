@@ -20,6 +20,9 @@ impl FENString {
         let position = fields.next().context("FEN string is empty")?;
         let piece_positions = Self::try_parse_position(position)?;
 
+        let active_color = fields.next().context("FEN string is incomplete")?;
+        let _active_color = Self::try_parse_active_color(active_color)?;
+
         Ok(Self { piece_positions })
     }
 
@@ -32,15 +35,12 @@ impl FENString {
         let mut cur_file = File::A;
         let mut cur_rank = Rank::R8; // FEN strings start from the 8th rank, not the 1st
         for char in position.chars() {
-            let fen_char =
-                FENPosChars::try_from(char).context("FEN string includes invalid characters")?;
+            let fen_char = FENPosChars::try_from(char)?;
 
             match fen_char {
                 FENPosChars::NewRank => {
                     // Move to the next rank
-                    cur_rank = cur_rank
-                        .prev(1)
-                        .context("FEN string includes more ranks than can actually exist")?;
+                    cur_rank = cur_rank.prev(1)?;
                     cur_file = File::A;
                 }
                 FENPosChars::BlackPiece(piece) => {
@@ -66,14 +66,28 @@ impl FENString {
                     };
                 }
                 FENPosChars::EmptySquares(n) => {
-                    cur_file = cur_file
-                        .next(n - 1)
-                        .context("FEN string contains more files than can actually exist")?;
+                    cur_file = cur_file.next(n - 1)?;
                 }
             }
         }
 
         Ok(piece_positions)
+    }
+
+    fn try_parse_active_color(active_color: &str) -> anyhow::Result<Side> {
+        if active_color.len() != 1 {
+            return Err(anyhow!(
+                "FEN active color field '{active_color}' length is invalid (must be a single char)"
+            ));
+        }
+
+        match active_color {
+            "w" => Ok(Side::White),
+            "b" => Ok(Side::Black),
+            _ => Err(anyhow!(
+                "FEN string contains invalid active color char '{active_color}"
+            )),
+        }
     }
 }
 
@@ -109,7 +123,7 @@ impl TryFrom<char> for FENPosChars {
                     .try_into()
                     .expect("u32 value should be convertable to u8"),
             )),
-            _ => Err(anyhow!("Invalid FEN char: {value}")),
+            _ => Err(anyhow!("Invalid FEN char '{value}'")),
         }
     }
 }
@@ -155,5 +169,30 @@ mod tests {
         // Make sure cross-contamination didn't happen (e.g., White pawns on Black's side)
         assert!(!fen_str.piece_positions[white_idx][pawn_idx].contains(&Square::A7));
         assert!(!fen_str.piece_positions[black_idx][pawn_idx].contains(&Square::A2));
+    }
+
+    #[test]
+    fn active_color() {
+        let active_color = "w";
+        let expected = Side::White;
+        assert_eq!(
+            FENString::try_parse_active_color(active_color)
+                .expect("Parsing 'w' active color should not throw an error"),
+            expected
+        );
+
+        let active_color = "b";
+        let expected = Side::Black;
+        assert_eq!(
+            FENString::try_parse_active_color(active_color)
+                .expect("Parsing 'b' active color should not throw an error"),
+            expected
+        );
+
+        let active_color = "B";
+        assert!(FENString::try_parse_active_color(active_color).is_err());
+
+        let active_color = "bw";
+        assert!(FENString::try_parse_active_color(active_color).is_err());
     }
 }
