@@ -29,6 +29,9 @@ impl FENString {
         let en_passant_target = fields.next().context("FEN string is incomplete")?;
         let _en_passant_target = Self::try_parse_en_passant_target(en_passant_target)?;
 
+        let halfmoves = fields.next().context("FEN string is incomplete")?;
+        let _halfmoves = Self::try_parse_halfmoves(halfmoves)?;
+
         Ok(Self { piece_positions })
     }
 
@@ -167,6 +170,21 @@ impl FENString {
         }
 
         Ok(Some(Square::try_from(en_passant_target)?))
+    }
+
+    fn try_parse_halfmoves(halfmoves: &str) -> anyhow::Result<u8> {
+        let halfmoves = halfmoves
+            .parse::<u8>()
+            .with_context(|| format!("FEN halfmoves field is invalid: {halfmoves}"))?;
+
+        // Enforce the 50-move rule
+        if halfmoves > 100 {
+            return Err(anyhow!(
+                "Number of halfmoves exceeds the 50-move rule: {halfmoves}"
+            ));
+        }
+
+        Ok(halfmoves)
     }
 }
 
@@ -396,5 +414,32 @@ mod tests {
         // Field string is empty
         let target = "";
         assert!(FENString::try_parse_en_passant_target(target).is_err());
+    }
+
+    #[test]
+    fn halfmoves() {
+        assert_eq!(
+            FENString::try_parse_halfmoves("0").expect("Should parse 0 halfmoves"),
+            0
+        );
+        assert_eq!(
+            FENString::try_parse_halfmoves("14").expect("Should parse 14 halfmoves"),
+            14
+        );
+
+        // The 50-move rule claim threshold
+        assert_eq!(
+            FENString::try_parse_halfmoves("100").expect("Should parse 100 halfmoves"),
+            100
+        );
+
+        // Invalid Boundary Violations
+        assert!(FENString::try_parse_halfmoves("151").is_err());
+        assert!(FENString::try_parse_halfmoves("200").is_err());
+
+        assert!(FENString::try_parse_halfmoves("-5").is_err());
+        assert!(FENString::try_parse_halfmoves("12.5").is_err());
+        assert!(FENString::try_parse_halfmoves("abc").is_err());
+        assert!(FENString::try_parse_halfmoves("").is_err());
     }
 }
