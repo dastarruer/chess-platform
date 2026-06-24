@@ -1,3 +1,4 @@
+use anyhow::{Context, anyhow};
 use strum::{EnumCount, EnumIter, FromRepr};
 
 #[derive(EnumCount, EnumIter, Clone, Copy, PartialEq, Eq, Debug, FromRepr)]
@@ -106,6 +107,82 @@ impl Square {
     }
 }
 
+/// Provides a mechanism to advance an enum variant forward by a specific
+/// offset.
+///
+/// This trait is meant to be used for enum variants that can go out of bounds,
+/// including chess files and ranks.
+pub trait TryNext: Into<u8> + TryFrom<u8> + EnumCount + std::fmt::Display + Copy
+where
+    anyhow::Error: From<<Self as TryFrom<u8>>::Error> + Send + Sync,
+{
+    /// Advance the current value forward `n` steps.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Resulting conversion goes out of bounds.
+    ///
+    /// /// # Examples
+    ///
+    /// ```rust
+    /// # use chess_lib::square::{Rank, TryNext};
+    /// let rank = Rank::R7;
+    /// assert_eq!(rank.next(1).unwrap(), Rank::R8);
+    /// assert!(rank.next(2).is_err()); // Would result in out-of-bounds rank
+    /// ```
+    fn next(self, n: u8) -> anyhow::Result<Self> {
+        let next = self
+            .into()
+            .checked_add(n)
+            .with_context(|| format!("Adding {n} to {self} is invalid as it causes an overflow"))?;
+
+        if next > Self::COUNT as u8 {
+            return Err(anyhow!(
+                "Adding {n} to {self} is invalid as it goes out of bounds"
+            ));
+        }
+
+        Ok(Self::try_from(next)?)
+    }
+}
+
+/// Provides a mechanism to move an enum variant backwards by a specific
+/// offset.
+///
+/// This trait is meant to be used for enum variants that can go out of bounds,
+/// including chess files and ranks.
+pub trait TryPrevious: Into<u8> + TryFrom<u8> + EnumCount + std::fmt::Display + Copy
+where
+    anyhow::Error: From<<Self as TryFrom<u8>>::Error> + Send + Sync,
+{
+    /// Move the current value backwards `n` steps.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Resulting conversion goes out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use chess_lib::square::{Rank, TryPrevious};
+    /// let rank = Rank::R2;
+    /// assert_eq!(rank.prev(1).unwrap(), Rank::R1);
+    /// assert!(rank.prev(2).is_err()); // Would result in out-of-bounds rank
+    /// ```
+    fn prev(self, n: u8) -> anyhow::Result<Self> {
+        let prev = self.into().checked_sub(n).with_context(|| {
+            format!("Subtracting {n} from {self} is invalid as it causes an underflow")
+        })?;
+
+        Ok(Self::try_from(prev)?)
+    }
+}
+
+#[derive(EnumCount, EnumIter, Clone, Copy, PartialEq, Eq, Debug, FromRepr, strum::Display)]
 #[repr(u8)]
 pub enum File {
     A = 0,
@@ -118,6 +195,23 @@ pub enum File {
     H,
 }
 
+impl TryFrom<u8> for File {
+    type Error = anyhow::Error;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        File::from_repr(value).with_context(|| format!("Unable to convert {value} to File"))
+    }
+}
+
+impl From<File> for u8 {
+    fn from(val: File) -> Self {
+        val as u8
+    }
+}
+
+impl TryNext for File {}
+impl TryPrevious for File {}
+
+#[derive(EnumCount, EnumIter, Clone, Copy, PartialEq, Eq, Debug, FromRepr, strum::Display)]
 #[repr(u8)]
 pub enum Rank {
     R1 = 0,
@@ -129,6 +223,22 @@ pub enum Rank {
     R7,
     R8,
 }
+
+impl TryFrom<u8> for Rank {
+    type Error = anyhow::Error;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Rank::from_repr(value).with_context(|| format!("Unable to convert {value} to Rank"))
+    }
+}
+
+impl From<Rank> for u8 {
+    fn from(val: Rank) -> Self {
+        val as u8
+    }
+}
+
+impl TryNext for Rank {}
+impl TryPrevious for Rank {}
 
 #[cfg(test)]
 mod tests {
