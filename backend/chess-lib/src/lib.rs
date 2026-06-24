@@ -9,15 +9,43 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
 };
 
-use strum::{EnumCount, IntoEnumIterator};
+use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
-use crate::square::Square;
+use crate::{fen::FENString, square::Square};
 
 pub struct Chessboard {
     pieces: [[Bitboard; PieceType::COUNT]; Side::COUNT],
+    game_stats: GameStats,
 }
 
 impl Chessboard {
+    /// Create a new [`Chessboard`] from a FEN string.
+    ///
+    /// See [`FENString`] for details.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - `fen_str` is an invalid FEN string.
+    fn new(fen_str: &str) -> anyhow::Result<Self> {
+        let fen_str = FENString::try_parse(fen_str)?;
+        let mut pieces = [[Bitboard::empty(); PieceType::COUNT]; Side::COUNT];
+
+        for side in Side::iter() {
+            for piece in PieceType::iter() {
+                for square in fen_str.pieces(side, piece) {
+                    pieces[side as usize][piece as usize] |= Bitboard::new(square.mask());
+                }
+            }
+        }
+
+        Ok(Chessboard {
+            pieces,
+            game_stats: fen_str.game_stats,
+        })
+    }
+
     /// Return a `Bitboard` containing squares occupied by a specific piece
     /// type.
     fn occupied_piece(&self, piece: PieceType) -> Bitboard {
@@ -44,30 +72,11 @@ impl Chessboard {
 }
 
 impl Default for Chessboard {
-    /// Create a new chessboard set in the starting position.
+    /// Create a new chessboard in the starting position.
     fn default() -> Self {
-        let mut pieces = [[Bitboard::empty(); PieceType::COUNT]; Side::COUNT];
-
-        let w = Side::White as usize;
-        let b = Side::Black as usize;
-
-        // Assign white pieces
-        pieces[w][PieceType::Pawn as usize] = Bitboard::new(0x0000_0000_0000_FF00);
-        pieces[w][PieceType::Rook as usize] = Bitboard::new(0x0000_0000_0000_0081);
-        pieces[w][PieceType::Knight as usize] = Bitboard::new(0x0000_0000_0000_0042);
-        pieces[w][PieceType::Bishop as usize] = Bitboard::new(0x0000_0000_0000_0024);
-        pieces[w][PieceType::Queen as usize] = Bitboard::new(0x0000_0000_0000_0008);
-        pieces[w][PieceType::King as usize] = Bitboard::new(0x0000_0000_0000_0010);
-
-        // Assign black pieces
-        pieces[b][PieceType::Pawn as usize] = Bitboard::new(0x00FF_0000_0000_0000);
-        pieces[b][PieceType::Rook as usize] = Bitboard::new(0x8100_0000_0000_0000);
-        pieces[b][PieceType::Knight as usize] = Bitboard::new(0x4200_0000_0000_0000);
-        pieces[b][PieceType::Bishop as usize] = Bitboard::new(0x2400_0000_0000_0000);
-        pieces[b][PieceType::Queen as usize] = Bitboard::new(0x0800_0000_0000_0000);
-        pieces[b][PieceType::King as usize] = Bitboard::new(0x1000_0000_0000_0000);
-
-        Self { pieces }
+        const STARTING_FEN_STR: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        Chessboard::new(STARTING_FEN_STR)
+            .expect("Parsing starting position should not throw an error")
     }
 }
 
@@ -179,13 +188,13 @@ struct GameStats {
     fullmoves: u16,
 }
 
-#[derive(EnumCount, Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(EnumCount, EnumIter, Debug, Eq, PartialEq, Clone, Copy)]
 enum Side {
     White = 0,
     Black = 1,
 }
 
-#[derive(EnumCount, Clone, Copy)]
+#[derive(EnumCount, EnumIter, Clone, Copy)]
 enum PieceType {
     King = 0,
     Knight = 1,

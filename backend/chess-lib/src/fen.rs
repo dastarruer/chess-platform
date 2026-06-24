@@ -9,13 +9,13 @@ use crate::{
 /// A format to store chess positions in an easily parsable string.
 ///
 /// See <https://www.chess.com/terms/fen_str-chess> for details.
-struct FENString {
+pub struct FENString {
     piece_positions: [[Vec<Square>; PieceType::COUNT]; Side::COUNT],
-    game_stats: GameStats,
+    pub(super) game_stats: GameStats,
 }
 
 impl FENString {
-    fn try_parse(fen_str: &str) -> anyhow::Result<Self> {
+    pub fn try_parse(fen_str: &str) -> anyhow::Result<Self> {
         let mut fields = fen_str.split_ascii_whitespace();
 
         let position = fields.next().context("FEN string is empty")?;
@@ -48,6 +48,12 @@ impl FENString {
             piece_positions,
             game_stats,
         })
+    }
+
+    /// Returns a slice of all squares occupied by a specific piece type on a
+    /// specific side.
+    pub fn pieces(&self, side: Side, piece: PieceType) -> &[Square] {
+        &self.piece_positions[side as usize][piece as usize]
     }
 
     fn try_parse_position(
