@@ -2,7 +2,7 @@ use anyhow::{Context, anyhow};
 use strum::EnumCount;
 
 use crate::{
-    CastleRights, PieceType, Side, Square,
+    CastleRights, GameStats, PieceType, Side, Square,
     square::{File, Rank, TryNext, TryPrevious},
 };
 
@@ -11,6 +11,7 @@ use crate::{
 /// See <https://www.chess.com/terms/fen_str-chess> for details.
 struct FENString {
     piece_positions: [[Vec<Square>; PieceType::COUNT]; Side::COUNT],
+    game_stats: GameStats,
 }
 
 impl FENString {
@@ -21,21 +22,32 @@ impl FENString {
         let piece_positions = Self::try_parse_position(position)?;
 
         let active_color = fields.next().context("FEN string is incomplete")?;
-        let _active_color = Self::try_parse_active_color(active_color)?;
+        let active_color = Self::try_parse_active_color(active_color)?;
 
         let castle_rights = fields.next().context("FEN string is incomplete")?;
-        let _castle_rights = Self::try_parse_castle_rights(castle_rights)?;
+        let castle_rights = Self::try_parse_castle_rights(castle_rights)?;
 
         let en_passant_target = fields.next().context("FEN string is incomplete")?;
-        let _en_passant_target = Self::try_parse_en_passant_target(en_passant_target)?;
+        let en_passant_target = Self::try_parse_en_passant_target(en_passant_target)?;
 
         let halfmoves = fields.next().context("FEN string is incomplete")?;
-        let _halfmoves = Self::try_parse_halfmoves(halfmoves)?;
+        let halfmoves = Self::try_parse_halfmoves(halfmoves)?;
 
         let fullmoves = fields.next().context("FEN string is incomplete")?;
-        let _fullmoves = Self::try_parse_fullmoves(fullmoves)?;
+        let fullmoves = Self::try_parse_fullmoves(fullmoves)?;
 
-        Ok(Self { piece_positions })
+        let game_stats = GameStats {
+            active_color,
+            castle_rights,
+            en_passant_target,
+            halfmoves,
+            fullmoves,
+        };
+
+        Ok(Self {
+            piece_positions,
+            game_stats,
+        })
     }
 
     fn try_parse_position(
@@ -277,7 +289,6 @@ mod tests {
         let pawn_idx = PieceType::Pawn as usize;
         let rook_idx = PieceType::Rook as usize;
 
-        // --- Verify White Pieces ---
         // White should have 8 pawns on the 2nd rank
         assert_eq!(fen_str.piece_positions[white_idx][pawn_idx].len(), 8);
         assert!(fen_str.piece_positions[white_idx][pawn_idx].contains(&Square::A2));
@@ -288,7 +299,6 @@ mod tests {
         assert!(fen_str.piece_positions[white_idx][rook_idx].contains(&Square::A1));
         assert!(fen_str.piece_positions[white_idx][rook_idx].contains(&Square::H1));
 
-        // --- Verify Black Pieces ---
         // Black should have 8 pawns on the 7th rank
         assert_eq!(fen_str.piece_positions[black_idx][pawn_idx].len(), 8);
         assert!(fen_str.piece_positions[black_idx][pawn_idx].contains(&Square::A7));
@@ -299,10 +309,18 @@ mod tests {
         assert!(fen_str.piece_positions[black_idx][rook_idx].contains(&Square::A8));
         assert!(fen_str.piece_positions[black_idx][rook_idx].contains(&Square::H8));
 
-        // --- Sanity Checks ---
         // Make sure cross-contamination didn't happen (e.g., White pawns on Black's side)
         assert!(!fen_str.piece_positions[white_idx][pawn_idx].contains(&Square::A7));
         assert!(!fen_str.piece_positions[black_idx][pawn_idx].contains(&Square::A2));
+
+        let expected_stats = GameStats {
+            active_color: Side::White,
+            castle_rights: [CastleRights::KingQueen, CastleRights::KingQueen],
+            en_passant_target: None,
+            halfmoves: 0,
+            fullmoves: 1,
+        };
+        assert_eq!(fen_str.game_stats, expected_stats);
     }
 
     #[test]
