@@ -8,4 +8,9 @@ anyhow = "1.0.102"
 strum = { version = "0.28", features = ["derive"] }
 
 [dev-dependencies]
+criterion = "0.8.2"
 indoc = "2.0.7"
+
+[[bench]]
+name = "benches"
+harness = false
