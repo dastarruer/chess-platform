@@ -16,14 +16,9 @@ An online chess platform based on existing platforms such as
 
 ```mermaid
 graph TD
-    DB[(PostgreSQL)]
-    Engine[Engine (Rust)]
-    ChessLibrary[Chessboard Library (Rust)]
-    Backend[Backend API (Rust)]
-    Frontend[Frontend (SvelteKit)]
-
-    Frontend --> Backend
-    Engine --> ChessLibrary
+    DB[("PostgreSQL")]
+    Frontend --> Backend["Backend API (Rust)"]
+    Engine["Engine (Rust)"] --> ChessLibrary["Chessboard Library (Rust)"]
     Backend --> ChessLibrary
     Backend --> Engine
     Backend --> DB
