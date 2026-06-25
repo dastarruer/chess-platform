@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-mod fen;
+pub mod fen;
 mod moves;
 pub mod square;
 
@@ -189,13 +189,13 @@ struct GameStats {
 }
 
 #[derive(EnumCount, EnumIter, Debug, Eq, PartialEq, Clone, Copy)]
-enum Side {
+pub enum Side {
     White = 0,
     Black = 1,
 }
 
 #[derive(EnumCount, EnumIter, Clone, Copy)]
-enum PieceType {
+pub enum PieceType {
     King = 0,
     Knight = 1,
     Bishop = 2,
