@@ -59,17 +59,32 @@ impl FENString {
     fn try_parse_position(
         position: &str,
     ) -> anyhow::Result<[[Vec<Square>; PieceType::COUNT]; Side::COUNT]> {
+        const EXPECTED_RANKS: usize = Rank::COUNT;
+
+        let num_ranks = position.matches('/').count() + 1; // Add one to account for the 8th rank
+        if num_ranks != EXPECTED_RANKS {
+            return Err(anyhow!(
+                "FEN string position field contains {num_ranks} ranks instead of {EXPECTED_RANKS} ranks: {position}",
+            ));
+        }
+
         let mut piece_positions: [[Vec<Square>; PieceType::COUNT]; Side::COUNT] =
             std::array::from_fn(|_| std::array::from_fn(|_| Vec::new()));
 
         let mut cur_file = File::A;
         let mut cur_rank = Rank::R8; // FEN strings start from the 8th rank, not the 1st
+
         for char in position.chars() {
             let fen_char = FENPosChars::try_from(char)?;
 
             match fen_char {
                 FENPosChars::NewRank => {
-                    // Move to the next rank
+                    if cur_file != File::H {
+                        return Err(anyhow!(
+                            "FEN string position field contains less than 8 files in a rank: {position}",
+                        ));
+                    }
+
                     cur_rank = cur_rank.prev(1)?;
                     cur_file = File::A;
                 }
@@ -327,6 +342,30 @@ mod tests {
             fullmoves: 1,
         };
         assert_eq!(fen_str.game_stats, expected_stats);
+    }
+
+    #[test]
+    fn position_rank_bounds_validation() {
+        // 9 squares on 8th rank is invalid ('p8')
+        let fen_str = "p8/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        assert!(
+            FENString::try_parse(fen_str).is_err(),
+            "Should fail parsing because a rank cannot contain 9 squares"
+        );
+
+        // 7 squares on 8th rank is invalid ('p7')
+        let invalid_underflow_fen = "p6/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        assert!(
+            FENString::try_parse(invalid_underflow_fen).is_err(),
+            "Should fail parsing because a rank cannot contain only 7 squares"
+        );
+
+        // Only 7 ranks is invalid
+        let missing_ranks_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP w KQkq - 0 1";
+        assert!(
+            FENString::try_parse(missing_ranks_fen).is_err(),
+            "Should fail parsing because there are only 7 ranks instead of 8"
+        );
     }
 
     #[test]
