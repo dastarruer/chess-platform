@@ -64,6 +64,17 @@ impl FENString {
         &self.piece_positions[side as usize][piece as usize]
     }
 
+    /// Try to parse the position field of a FEN string.
+    ///
+    /// See <https://www.chess.com/terms/fen-chess#piece-placement> for more
+    /// information.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Field does not contain the expected 8 ranks.
+    /// - Field does not contain the expected 8 files per rank.
     fn try_parse_position(
         position: &str,
     ) -> anyhow::Result<[[Vec<Square>; PieceType::COUNT]; Side::COUNT]> {
@@ -127,6 +138,17 @@ impl FENString {
         Ok(piece_positions)
     }
 
+    /// Try to parse the active color field of a FEN string.
+    ///
+    /// See <https://www.chess.com/terms/fen-chess#active-color> for more
+    /// information.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Field is not a single character.
+    /// - Field contains an invalid character.
     fn try_parse_active_color(active_color: &str) -> anyhow::Result<Side> {
         if active_color.len() != 1 {
             return Err(anyhow!(
@@ -143,6 +165,18 @@ impl FENString {
         }
     }
 
+    /// Try to parse the castle rights field of a FEN string.
+    ///
+    /// See <https://www.chess.com/terms/fen-chess#castling-rights> for more
+    /// information.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Field is larger than 4 characters, or is empty.
+    /// - Field does not follow the required `KQkq` order (e.g. if field is
+    ///   `QKqk` or `kQ`).
     fn try_parse_castle_rights(
         castle_rights_field: &str,
     ) -> anyhow::Result<[CastleRights; Side::COUNT]> {
@@ -208,6 +242,16 @@ impl FENString {
         Ok(castle_rights)
     }
 
+    /// Try to parse the en passant target field of a FEN string.
+    ///
+    /// See <https://www.chess.com/terms/fen-chess#en-passant-targets> for more
+    /// information.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Field is not a single valid coordinate.
     fn try_parse_en_passant_target(en_passant_target: &str) -> anyhow::Result<Option<Square>> {
         if en_passant_target == "-" {
             return Ok(None);
@@ -216,6 +260,19 @@ impl FENString {
         Ok(Some(Square::try_from(en_passant_target)?))
     }
 
+    /// Try to parse the halfmove clock field of a FEN string.
+    ///
+    /// See <https://www.chess.com/terms/fen-chess#halfmove-clock> for more
+    /// information.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Field is not a positive integer.
+    /// - Field contains an invalid number of halfmoves greater than 100
+    ///   (therefore violating the
+    ///   [50-move rule](https://en.wikipedia.org/wiki/Fifty-move_rule))
     fn try_parse_halfmoves(halfmoves: &str) -> anyhow::Result<u8> {
         let halfmoves = halfmoves
             .parse::<u8>()
@@ -231,6 +288,16 @@ impl FENString {
         Ok(halfmoves)
     }
 
+    /// Try to parse the active color field of a FEN string.
+    ///
+    /// See <https://www.chess.com/terms/fen-chess#fullmove-number> for more
+    /// information.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Field is not a nonzero positive integer.
     fn try_parse_fullmoves(fullmoves: &str) -> anyhow::Result<u16> {
         let fullmoves = fullmoves
             .parse::<u16>()
