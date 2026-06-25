@@ -105,6 +105,20 @@ impl Square {
     pub fn from_coordinates(file: File, rank: Rank) -> Self {
         Self::from_repr((rank as u8 * 8) + file as u8).expect("Coordinates should not be invalid")
     }
+
+    /// Returns the [`Rank`] of the [`Square`].
+    pub fn rank(&self) -> Rank {
+        (*self as u8 / Rank::COUNT as u8)
+            .try_into()
+            .expect("Converting square index to rank should not be invalid")
+    }
+
+    /// Returns the [`File`] of the [`Square`].
+    pub fn file(&self) -> File {
+        (*self as u8 % File::COUNT as u8)
+            .try_into()
+            .expect("Converting square index to rank should not be invalid")
+    }
 }
 
 impl TryFrom<&str> for Square {
@@ -340,5 +354,23 @@ mod tests {
         let expected = Square::H8;
 
         assert_eq!(Square::from_coordinates(file, rank), expected);
+    }
+
+    #[test]
+    fn get_rank_from_square() {
+        assert_eq!(Square::A1.rank(), Rank::R1);
+        assert_eq!(Square::H1.rank(), Rank::R1);
+        assert_eq!(Square::A2.rank(), Rank::R2);
+        assert_eq!(Square::E4.rank(), Rank::R4);
+        assert_eq!(Square::H8.rank(), Rank::R8);
+    }
+
+    #[test]
+    fn get_file_from_square() {
+        assert_eq!(Square::A1.file(), File::A);
+        assert_eq!(Square::A8.file(), File::A);
+        assert_eq!(Square::B1.file(), File::B);
+        assert_eq!(Square::E4.file(), File::E);
+        assert_eq!(Square::H8.file(), File::H);
     }
 }
