@@ -251,13 +251,20 @@ impl FENString {
     ///
     /// Returns an error if:
     ///
-    /// - Field is not a single valid coordinate.
+    /// - Field is not a single valid coordinate on either the 3rd or 6th rank.
     fn try_parse_en_passant_target(en_passant_target: &str) -> anyhow::Result<Option<Square>> {
         if en_passant_target == "-" {
             return Ok(None);
         }
 
-        Ok(Some(Square::try_from(en_passant_target)?))
+        let square = Square::try_from(en_passant_target)?;
+
+        match square.rank() {
+            Rank::R3 | Rank::R6 => Ok(Some(square)),
+            _ => Err(anyhow!(
+                "FEN en passant target field contains a coordinate on an invalid rank."
+            )),
+        }
     }
 
     /// Try to parse the halfmove clock field of a FEN string.
@@ -559,12 +566,16 @@ mod tests {
             let target = "z3";
             assert!(FENString::try_parse_en_passant_target(target).is_err());
 
-            // Invliad rank
+            // Invalid rank
             let target = "e9";
             assert!(FENString::try_parse_en_passant_target(target).is_err());
 
             // Invalid coordinate
             let target = "e3e4";
+            assert!(FENString::try_parse_en_passant_target(target).is_err());
+
+            // Valid coordinate but not a valid en passant square
+            let target = "e4";
             assert!(FENString::try_parse_en_passant_target(target).is_err());
 
             // Field string is empty
