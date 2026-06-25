@@ -16,7 +16,15 @@ pub struct FENString {
 
 impl FENString {
     pub fn try_parse(fen_str: &str) -> anyhow::Result<Self> {
+        const EXPECTED_NUM_FIELDS: usize = 6;
+
         let mut fields = fen_str.split_ascii_whitespace();
+
+        if fields.clone().count() != EXPECTED_NUM_FIELDS {
+            return Err(anyhow!(
+                "FEN string contains more fields than should exist: {fen_str}"
+            ));
+        }
 
         let position = fields.next().context("FEN string is empty")?;
         let piece_positions = Self::try_parse_position(position)?;
@@ -365,6 +373,16 @@ mod tests {
         assert!(
             FENString::try_parse(missing_ranks_fen).is_err(),
             "Should fail parsing because there are only 7 ranks instead of 8"
+        );
+    }
+
+    #[test]
+    fn parse_invalid_strings() {
+        // Includes an extra field at the end that shouldn't exist
+        let extra_fields = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 1";
+        assert!(
+            FENString::try_parse(extra_fields).is_err(),
+            "Should fail parsing because there are extra fields"
         );
     }
 
