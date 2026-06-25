@@ -221,6 +221,10 @@ pub enum File {
 
 impl TryFrom<u8> for File {
     type Error = anyhow::Error;
+    /// Convert a file index into a [`File`].
+    ///
+    /// For instance, a `value` of `0` corresponds with [`File::A`], `1`
+    /// corresponds with [`File::B`], and so on.
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         File::from_repr(value).with_context(|| format!("Unable to convert {value} to File"))
     }
@@ -234,6 +238,11 @@ impl From<File> for u8 {
 
 impl TryFrom<char> for File {
     type Error = anyhow::Error;
+
+    /// Convert an ASCII character to a [`File`], irrespective of case.
+    ///
+    /// For instance, a `value` of `a` corresponds with [`File::A`], `B`
+    /// corresponds with [`File::B`], and so on.
     fn try_from(value: char) -> Result<Self, Self::Error> {
         match value.to_ascii_lowercase() {
             'a' => Ok(Self::A),
@@ -267,6 +276,11 @@ pub enum Rank {
 
 impl TryFrom<u8> for Rank {
     type Error = anyhow::Error;
+
+    /// Convert a rank index into a [`Rank`].
+    ///
+    /// For instance, a `value` of `0` corresponds with [`Rank::R1`], `1`
+    /// corresponds with [`Rank::R2`], and so on.
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         Rank::from_repr(value).with_context(|| format!("Unable to convert {value} to Rank"))
     }
@@ -274,6 +288,11 @@ impl TryFrom<u8> for Rank {
 
 impl TryFrom<char> for Rank {
     type Error = anyhow::Error;
+
+    /// Convert an ASCII character to a [`Rank`].
+    ///
+    /// For instance, a `value` of `1` corresponds with [`Rank::R1`], `2`
+    /// corresponds with [`Rank::R2`], and so on.
     fn try_from(value: char) -> Result<Self, Self::Error> {
         match value.to_ascii_lowercase() {
             '1' => Ok(Self::R1),
