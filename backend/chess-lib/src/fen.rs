@@ -307,263 +307,257 @@ impl TryFrom<char> for FENPosChars {
 mod tests {
     use super::*;
 
-    #[test]
-    fn parse_starting_pos() {
-        // Represents the starting position of chess
-        let fen_str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-        let fen_str = FENString::try_parse(fen_str).expect("Starting FEN string should be valid");
+    mod full_str_parsing {
+        use super::*;
 
-        let white_idx = Side::White as usize;
-        let black_idx = Side::Black as usize;
-        let pawn_idx = PieceType::Pawn as usize;
-        let rook_idx = PieceType::Rook as usize;
+        #[test]
+        fn parse_starting_pos() {
+            // Represents the starting position of chess
+            let fen_str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+            let fen_str =
+                FENString::try_parse(fen_str).expect("Starting FEN string should be valid");
 
-        // White should have 8 pawns on the 2nd rank
-        assert_eq!(fen_str.piece_positions[white_idx][pawn_idx].len(), 8);
-        assert!(fen_str.piece_positions[white_idx][pawn_idx].contains(&Square::A2));
-        assert!(fen_str.piece_positions[white_idx][pawn_idx].contains(&Square::H2));
+            let white_idx = Side::White as usize;
+            let black_idx = Side::Black as usize;
+            let pawn_idx = PieceType::Pawn as usize;
+            let rook_idx = PieceType::Rook as usize;
 
-        // White should have rooks on A1 and H1
-        assert_eq!(fen_str.piece_positions[white_idx][rook_idx].len(), 2);
-        assert!(fen_str.piece_positions[white_idx][rook_idx].contains(&Square::A1));
-        assert!(fen_str.piece_positions[white_idx][rook_idx].contains(&Square::H1));
+            // White should have 8 pawns on the 2nd rank
+            assert_eq!(fen_str.piece_positions[white_idx][pawn_idx].len(), 8);
+            assert!(fen_str.piece_positions[white_idx][pawn_idx].contains(&Square::A2));
+            assert!(fen_str.piece_positions[white_idx][pawn_idx].contains(&Square::H2));
 
-        // Black should have 8 pawns on the 7th rank
-        assert_eq!(fen_str.piece_positions[black_idx][pawn_idx].len(), 8);
-        assert!(fen_str.piece_positions[black_idx][pawn_idx].contains(&Square::A7));
-        assert!(fen_str.piece_positions[black_idx][pawn_idx].contains(&Square::H7));
+            // White should have rooks on A1 and H1
+            assert_eq!(fen_str.piece_positions[white_idx][rook_idx].len(), 2);
+            assert!(fen_str.piece_positions[white_idx][rook_idx].contains(&Square::A1));
+            assert!(fen_str.piece_positions[white_idx][rook_idx].contains(&Square::H1));
 
-        // Black should have rooks on A8 and H8
-        assert_eq!(fen_str.piece_positions[black_idx][rook_idx].len(), 2);
-        assert!(fen_str.piece_positions[black_idx][rook_idx].contains(&Square::A8));
-        assert!(fen_str.piece_positions[black_idx][rook_idx].contains(&Square::H8));
+            // Black should have 8 pawns on the 7th rank
+            assert_eq!(fen_str.piece_positions[black_idx][pawn_idx].len(), 8);
+            assert!(fen_str.piece_positions[black_idx][pawn_idx].contains(&Square::A7));
+            assert!(fen_str.piece_positions[black_idx][pawn_idx].contains(&Square::H7));
 
-        // Make sure cross-contamination didn't happen (e.g., White pawns on Black's side)
-        assert!(!fen_str.piece_positions[white_idx][pawn_idx].contains(&Square::A7));
-        assert!(!fen_str.piece_positions[black_idx][pawn_idx].contains(&Square::A2));
+            // Black should have rooks on A8 and H8
+            assert_eq!(fen_str.piece_positions[black_idx][rook_idx].len(), 2);
+            assert!(fen_str.piece_positions[black_idx][rook_idx].contains(&Square::A8));
+            assert!(fen_str.piece_positions[black_idx][rook_idx].contains(&Square::H8));
 
-        let expected_stats = GameStats {
-            active_color: Side::White,
-            castle_rights: [CastleRights::KingQueen, CastleRights::KingQueen],
-            en_passant_target: None,
-            halfmoves: 0,
-            fullmoves: 1,
-        };
-        assert_eq!(fen_str.game_stats, expected_stats);
+            // Make sure cross-contamination didn't happen (e.g., White pawns on Black's side)
+            assert!(!fen_str.piece_positions[white_idx][pawn_idx].contains(&Square::A7));
+            assert!(!fen_str.piece_positions[black_idx][pawn_idx].contains(&Square::A2));
+
+            let expected_stats = GameStats {
+                active_color: Side::White,
+                castle_rights: [CastleRights::KingQueen, CastleRights::KingQueen],
+                en_passant_target: None,
+                halfmoves: 0,
+                fullmoves: 1,
+            };
+            assert_eq!(fen_str.game_stats, expected_stats);
+        }
+
+        #[test]
+        fn position_rank_bounds_validation() {
+            // 9 squares on 8th rank is invalid ('p8')
+            let fen_str = "p8/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+            assert!(
+                FENString::try_parse(fen_str).is_err(),
+                "Should fail parsing because a rank cannot contain 9 squares"
+            );
+
+            // 7 squares on 8th rank is invalid ('p7')
+            let invalid_underflow_fen = "p6/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+            assert!(
+                FENString::try_parse(invalid_underflow_fen).is_err(),
+                "Should fail parsing because a rank cannot contain only 7 squares"
+            );
+
+            // Only 7 ranks is invalid
+            let missing_ranks_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP w KQkq - 0 1";
+            assert!(
+                FENString::try_parse(missing_ranks_fen).is_err(),
+                "Should fail parsing because there are only 7 ranks instead of 8"
+            );
+        }
+
+        #[test]
+        fn parse_invalid_strings() {
+            // Includes an extra field at the end that shouldn't exist
+            let extra_fields = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 1";
+            assert!(
+                FENString::try_parse(extra_fields).is_err(),
+                "Should fail parsing because there are extra fields"
+            );
+        }
     }
 
-    #[test]
-    fn position_rank_bounds_validation() {
-        // 9 squares on 8th rank is invalid ('p8')
-        let fen_str = "p8/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-        assert!(
-            FENString::try_parse(fen_str).is_err(),
-            "Should fail parsing because a rank cannot contain 9 squares"
-        );
+    mod field_parsing {
+        use super::*;
 
-        // 7 squares on 8th rank is invalid ('p7')
-        let invalid_underflow_fen = "p6/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-        assert!(
-            FENString::try_parse(invalid_underflow_fen).is_err(),
-            "Should fail parsing because a rank cannot contain only 7 squares"
-        );
+        #[test]
+        fn active_color() {
+            let active_color = "w";
+            let expected = Side::White;
+            assert_eq!(
+                FENString::try_parse_active_color(active_color)
+                    .expect("Parsing 'w' active color should not throw an error"),
+                expected
+            );
 
-        // Only 7 ranks is invalid
-        let missing_ranks_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP w KQkq - 0 1";
-        assert!(
-            FENString::try_parse(missing_ranks_fen).is_err(),
-            "Should fail parsing because there are only 7 ranks instead of 8"
-        );
-    }
+            let active_color = "b";
+            let expected = Side::Black;
+            assert_eq!(
+                FENString::try_parse_active_color(active_color)
+                    .expect("Parsing 'b' active color should not throw an error"),
+                expected
+            );
 
-    #[test]
-    fn parse_invalid_strings() {
-        // Includes an extra field at the end that shouldn't exist
-        let extra_fields = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 1";
-        assert!(
-            FENString::try_parse(extra_fields).is_err(),
-            "Should fail parsing because there are extra fields"
-        );
-    }
+            let active_color = "B";
+            assert!(FENString::try_parse_active_color(active_color).is_err());
 
-    #[test]
-    fn active_color() {
-        let active_color = "w";
-        let expected = Side::White;
-        assert_eq!(
-            FENString::try_parse_active_color(active_color)
-                .expect("Parsing 'w' active color should not throw an error"),
-            expected
-        );
+            let active_color = "bw";
+            assert!(FENString::try_parse_active_color(active_color).is_err());
+        }
 
-        let active_color = "b";
-        let expected = Side::Black;
-        assert_eq!(
-            FENString::try_parse_active_color(active_color)
-                .expect("Parsing 'b' active color should not throw an error"),
-            expected
-        );
+        #[test]
+        fn castle_rights() {
+            let castle_rights_field = "KQkq";
+            let expected = [CastleRights::KingQueen, CastleRights::KingQueen];
+            assert_eq!(
+                FENString::try_parse_castle_rights(castle_rights_field)
+                    .expect("Parsing valid castle rights field should not throw an error"),
+                expected
+            );
 
-        let active_color = "B";
-        assert!(FENString::try_parse_active_color(active_color).is_err());
+            let castle_rights_field = "-";
+            let expected = [CastleRights::Neither, CastleRights::Neither];
+            assert_eq!(
+                FENString::try_parse_castle_rights(castle_rights_field)
+                    .expect("Parsing valid castle rights field should not throw an error"),
+                expected
+            );
 
-        let active_color = "bw";
-        assert!(FENString::try_parse_active_color(active_color).is_err());
-    }
+            let castle_rights_field = "KQkqq";
+            assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
 
-    #[test]
-    fn castle_rights() {
-        let castle_rights_field = "KQkq";
-        let expected = [CastleRights::KingQueen, CastleRights::KingQueen];
-        assert_eq!(
-            FENString::try_parse_castle_rights(castle_rights_field)
-                .expect("Parsing valid castle rights field should not throw an error"),
-            expected
-        );
+            let castle_rights_field = "WQkq";
+            assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
 
-        let castle_rights_field = "KQkq";
-        let expected = [CastleRights::KingQueen, CastleRights::KingQueen];
-        assert_eq!(
-            FENString::try_parse_castle_rights(castle_rights_field)
-                .expect("Parsing valid castle rights field should not throw an error"),
-            expected
-        );
+            // Castle rights should follow 'King Queen' order
+            let castle_rights_field = "QKqk";
+            assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
 
-        let castle_rights_field = "-";
-        let expected = [CastleRights::Neither, CastleRights::Neither];
-        assert_eq!(
-            FENString::try_parse_castle_rights(castle_rights_field)
-                .expect("Parsing valid castle rights field should not throw an error"),
-            expected
-        );
+            let castle_rights_field = "KkQq";
+            assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
 
-        let castle_rights_field = "KQkqq";
-        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+            let castle_rights_field = "KKQQ";
+            assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
 
-        let castle_rights_field = "WQkq";
-        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+            let castle_rights_field = "-K";
+            assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
 
-        let castle_rights_field = "-K";
-        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+            let castle_rights_field = "";
+            assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+        }
 
-        // Castle rights should follow 'King Queen' order
-        let castle_rights_field = "QKqk";
-        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+        #[test]
+        fn en_passant_target() {
+            let target = "e3";
+            let expected = Some(Square::E3);
+            assert_eq!(
+                FENString::try_parse_en_passant_target(target)
+                    .expect("Parsing 'e3' en passant target should succeed"),
+                expected
+            );
 
-        let castle_rights_field = "KkQq";
-        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+            // An en passant target square on c6 (Black just moved c7-c5)
+            let target = "c6";
+            let expected = Some(Square::C6);
+            assert_eq!(
+                FENString::try_parse_en_passant_target(target)
+                    .expect("Parsing 'c6' en passant target should succeed"),
+                expected
+            );
 
-        let castle_rights_field = "KKQQ";
-        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+            // No target exists
+            let target = "-";
+            let expected = None;
+            assert_eq!(
+                FENString::try_parse_en_passant_target(target)
+                    .expect("Parsing '-' en passant target should return None"),
+                expected
+            );
 
-        let castle_rights_field = "QK";
-        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
+            // Invalid file
+            let target = "z3";
+            assert!(FENString::try_parse_en_passant_target(target).is_err());
 
-        let castle_rights_field = "";
-        assert!(FENString::try_parse_castle_rights(castle_rights_field).is_err());
-    }
+            // Invliad rank
+            let target = "e9";
+            assert!(FENString::try_parse_en_passant_target(target).is_err());
 
-    #[test]
-    fn en_passant_target() {
-        // --- Valid Targets ---
-        // An en passant target square on e3 (White just moved e2-e4)
-        let target = "e3";
-        let expected = Some(Square::E3);
-        assert_eq!(
-            FENString::try_parse_en_passant_target(target)
-                .expect("Parsing 'e3' en passant target should succeed"),
-            expected
-        );
+            // Invalid coordinate
+            let target = "e3e4";
+            assert!(FENString::try_parse_en_passant_target(target).is_err());
 
-        // An en passant target square on c6 (Black just moved c7-c5)
-        let target = "c6";
-        let expected = Some(Square::C6);
-        assert_eq!(
-            FENString::try_parse_en_passant_target(target)
-                .expect("Parsing 'c6' en passant target should succeed"),
-            expected
-        );
+            // Field string is empty
+            let target = "";
+            assert!(FENString::try_parse_en_passant_target(target).is_err());
+        }
 
-        // --- Empty State ---
-        // No en passant target available (the most common state, represented by '-')
-        let target = "-";
-        let expected = None;
-        assert_eq!(
-            FENString::try_parse_en_passant_target(target)
-                .expect("Parsing '-' en passant target should return None safely"),
-            expected
-        );
+        #[test]
+        fn halfmoves() {
+            assert_eq!(
+                FENString::try_parse_halfmoves("0").expect("Should parse 0 halfmoves"),
+                0
+            );
+            assert_eq!(
+                FENString::try_parse_halfmoves("14").expect("Should parse 14 halfmoves"),
+                14
+            );
 
-        // --- Invalid Bounds & Formats ---
-        // Completely invalid file/rank characters
-        let target = "z3";
-        assert!(FENString::try_parse_en_passant_target(target).is_err());
+            // The 50-move rule claim threshold
+            assert_eq!(
+                FENString::try_parse_halfmoves("100").expect("Should parse 100 halfmoves"),
+                100
+            );
 
-        // Valid file but completely out-of-bounds rank for chess coordinates
-        let target = "e9";
-        assert!(FENString::try_parse_en_passant_target(target).is_err());
+            // Invalid Boundary Violations
+            assert!(FENString::try_parse_halfmoves("151").is_err());
+            assert!(FENString::try_parse_halfmoves("200").is_err());
 
-        // Field string is too long to be a single coordinate square
-        let target = "e3e4";
-        assert!(FENString::try_parse_en_passant_target(target).is_err());
+            assert!(FENString::try_parse_halfmoves("-5").is_err());
+            assert!(FENString::try_parse_halfmoves("12.5").is_err());
+            assert!(FENString::try_parse_halfmoves("abc").is_err());
+            assert!(FENString::try_parse_halfmoves("").is_err());
+        }
 
-        // Field string is empty
-        let target = "";
-        assert!(FENString::try_parse_en_passant_target(target).is_err());
-    }
+        #[test]
+        fn fullmoves() {
+            assert_eq!(
+                FENString::try_parse_fullmoves("1").expect("Should parse fullmove 1"),
+                1
+            );
 
-    #[test]
-    fn halfmoves() {
-        assert_eq!(
-            FENString::try_parse_halfmoves("0").expect("Should parse 0 halfmoves"),
-            0
-        );
-        assert_eq!(
-            FENString::try_parse_halfmoves("14").expect("Should parse 14 halfmoves"),
-            14
-        );
+            assert_eq!(
+                FENString::try_parse_fullmoves("45").expect("Should parse fullmove 45"),
+                45
+            );
 
-        // The 50-move rule claim threshold
-        assert_eq!(
-            FENString::try_parse_halfmoves("100").expect("Should parse 100 halfmoves"),
-            100
-        );
+            assert_eq!(
+                FENString::try_parse_fullmoves("350").expect("Should parse fullmove 350"),
+                350
+            );
 
-        // Invalid Boundary Violations
-        assert!(FENString::try_parse_halfmoves("151").is_err());
-        assert!(FENString::try_parse_halfmoves("200").is_err());
+            // A fullmove count of 0 is physically impossible in chess notation
+            assert!(FENString::try_parse_fullmoves("0").is_err());
 
-        assert!(FENString::try_parse_halfmoves("-5").is_err());
-        assert!(FENString::try_parse_halfmoves("12.5").is_err());
-        assert!(FENString::try_parse_halfmoves("abc").is_err());
-        assert!(FENString::try_parse_halfmoves("").is_err());
-    }
+            // Value exceeds a u16
+            assert!(FENString::try_parse_fullmoves("70000").is_err());
 
-    #[test]
-    fn fullmoves() {
-        assert_eq!(
-            FENString::try_parse_fullmoves("1").expect("Should parse fullmove 1"),
-            1
-        );
-
-        assert_eq!(
-            FENString::try_parse_fullmoves("45").expect("Should parse fullmove 45"),
-            45
-        );
-
-        assert_eq!(
-            FENString::try_parse_fullmoves("350").expect("Should parse fullmove 350"),
-            350
-        );
-
-        // A fullmove count of 0 is physically impossible in chess notation
-        assert!(FENString::try_parse_fullmoves("0").is_err());
-
-        // Value exceeds a u16
-        assert!(FENString::try_parse_fullmoves("70000").is_err());
-
-        assert!(FENString::try_parse_fullmoves("-1").is_err());
-        assert!(FENString::try_parse_fullmoves("twelve").is_err());
-        assert!(FENString::try_parse_fullmoves("").is_err());
+            assert!(FENString::try_parse_fullmoves("-1").is_err());
+            assert!(FENString::try_parse_fullmoves("twelve").is_err());
+            assert!(FENString::try_parse_fullmoves("").is_err());
+        }
     }
 }
