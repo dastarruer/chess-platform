@@ -92,6 +92,11 @@ impl Display for Chessboard {
     }
 }
 
+pub struct Piece {
+    kind: PieceType,
+    side: Side,
+}
+
 /// A bitboard representation of a chessboard.
 #[derive(Default, Clone, Copy)]
 struct Bitboard {

@@ -1,6 +1,18 @@
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
-use crate::{Bitboard, Square};
+use crate::{Bitboard, Piece, Square};
+
+pub struct Move {
+    piece: Piece,
+    from: Square,
+    to: Square,
+}
+
+impl Move {
+    pub fn new(piece: Piece, from: Square, to: Square) -> Self {
+        Self { piece, from, to }
+    }
+}
 
 struct MoveGenerator {
     knight_moves: [Bitboard; Square::COUNT],
