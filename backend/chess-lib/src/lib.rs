@@ -59,6 +59,18 @@ impl Chessboard {
         board
     }
 
+    /// Return a `Bitboard` containing squares occupied by a specific side.
+    fn occupied_side(&self, side: Side) -> Bitboard {
+        let mut board = Bitboard::empty();
+
+        for piece in PieceType::iter() {
+            let piece_board = self.pieces[side as usize][piece as usize];
+            board |= piece_board;
+        }
+
+        board
+    }
+
     /// Return a `Bitboard` containing squares occupied by all pieces.
     fn occupied(&self) -> Bitboard {
         let mut board = Bitboard::empty();
