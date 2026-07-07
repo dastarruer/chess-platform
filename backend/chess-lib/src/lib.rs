@@ -15,6 +15,11 @@ use crate::{fen::FENString, square::Square};
 
 pub struct Chessboard {
     pieces: [[Bitboard; PieceType::COUNT]; Side::COUNT],
+    /// Stores information on which squares contain which piece.
+    ///
+    /// Bitboards are inefficient when it comes to figuring out what piece is
+    /// on which square, so this is done with an array.
+    squares: [Option<Piece>; Square::COUNT],
     game_stats: GameStats,
 }
 
@@ -31,17 +36,22 @@ impl Chessboard {
     fn new(fen_str: &str) -> anyhow::Result<Self> {
         let fen_str = FENString::try_parse(fen_str)?;
         let mut pieces = [[Bitboard::empty(); PieceType::COUNT]; Side::COUNT];
+        let mut squares = [None; Square::COUNT];
 
         for side in Side::iter() {
             for piece in PieceType::iter() {
                 for square in fen_str.pieces(side, piece) {
                     pieces[side as usize][piece as usize] |= Bitboard::new(square.mask());
+
+                    let piece = Piece { kind: piece, side };
+                    squares[*square as usize] = Some(piece);
                 }
             }
         }
 
         Ok(Chessboard {
             pieces,
+            squares,
             game_stats: fen_str.game_stats,
         })
     }
@@ -104,6 +114,7 @@ impl Display for Chessboard {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Piece {
     kind: PieceType,
     side: Side,
@@ -211,7 +222,7 @@ pub enum Side {
     Black = 1,
 }
 
-#[derive(EnumCount, EnumIter, Clone, Copy)]
+#[derive(EnumCount, EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PieceType {
     King = 0,
     Knight = 1,
@@ -240,18 +251,126 @@ mod tests {
         #[test]
         fn default_board() {
             let chessboard = Chessboard::default();
-            let expected = indoc! {r#"
-                11111111
-                11111111
-                00000000
-                00000000
-                00000000
-                00000000
-                11111111
-                11111111
-            "#};
 
-            assert_eq!(chessboard.to_string(), expected);
+            let expected_bitboard = indoc! {r#"
+                    11111111
+                    11111111
+                    00000000
+                    00000000
+                    00000000
+                    00000000
+                    11111111
+                    11111111
+                "#};
+
+            assert_eq!(chessboard.to_string(), expected_bitboard);
+
+            use PieceType::*;
+            use Side::*;
+
+            let mut expected = [None; Square::COUNT];
+
+            // White
+            expected[Square::A1 as usize] = Some(Piece {
+                kind: Rook,
+                side: White,
+            });
+            expected[Square::B1 as usize] = Some(Piece {
+                kind: Knight,
+                side: White,
+            });
+            expected[Square::C1 as usize] = Some(Piece {
+                kind: Bishop,
+                side: White,
+            });
+            expected[Square::D1 as usize] = Some(Piece {
+                kind: Queen,
+                side: White,
+            });
+            expected[Square::E1 as usize] = Some(Piece {
+                kind: King,
+                side: White,
+            });
+            expected[Square::F1 as usize] = Some(Piece {
+                kind: Bishop,
+                side: White,
+            });
+            expected[Square::G1 as usize] = Some(Piece {
+                kind: Knight,
+                side: White,
+            });
+            expected[Square::H1 as usize] = Some(Piece {
+                kind: Rook,
+                side: White,
+            });
+
+            for file in [
+                Square::A2,
+                Square::B2,
+                Square::C2,
+                Square::D2,
+                Square::E2,
+                Square::F2,
+                Square::G2,
+                Square::H2,
+            ] {
+                expected[file as usize] = Some(Piece {
+                    kind: Pawn,
+                    side: White,
+                });
+            }
+
+            // Black
+            expected[Square::A8 as usize] = Some(Piece {
+                kind: Rook,
+                side: Black,
+            });
+            expected[Square::B8 as usize] = Some(Piece {
+                kind: Knight,
+                side: Black,
+            });
+            expected[Square::C8 as usize] = Some(Piece {
+                kind: Bishop,
+                side: Black,
+            });
+            expected[Square::D8 as usize] = Some(Piece {
+                kind: Queen,
+                side: Black,
+            });
+            expected[Square::E8 as usize] = Some(Piece {
+                kind: King,
+                side: Black,
+            });
+            expected[Square::F8 as usize] = Some(Piece {
+                kind: Bishop,
+                side: Black,
+            });
+            expected[Square::G8 as usize] = Some(Piece {
+                kind: Knight,
+                side: Black,
+            });
+            expected[Square::H8 as usize] = Some(Piece {
+                kind: Rook,
+                side: Black,
+            });
+
+            for file in [
+                Square::A7,
+                Square::B7,
+                Square::C7,
+                Square::D7,
+                Square::E7,
+                Square::F7,
+                Square::G7,
+                Square::H7,
+            ] {
+                expected[file as usize] = Some(Piece {
+                    kind: Pawn,
+                    side: Black,
+                });
+            }
+
+            assert_eq!(chessboard.squares, expected);
         }
 
         #[test]
