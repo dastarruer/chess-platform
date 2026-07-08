@@ -145,6 +145,13 @@ impl TryFrom<&str> for Square {
     }
 }
 
+impl TryFrom<u8> for Square {
+    type Error = anyhow::Error;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Square::from_repr(value).with_context(|| format!("{value} is not a valid square index"))
+    }
+}
+
 /// Provides a mechanism to advance an enum variant forward by a specific
 /// offset.
 ///
@@ -332,6 +339,19 @@ impl TryPrevious for Rank {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn from_idx() {
+        let valid_idx = 15;
+        let expected = Square::H2;
+        assert_eq!(
+            Square::try_from(valid_idx).expect("Valid square index should be parsed successfully"),
+            expected
+        );
+
+        let invalid_idx = 64;
+        assert!(Square::try_from(invalid_idx).is_err())
+    }
 
     #[test]
     fn from_coordinates() {

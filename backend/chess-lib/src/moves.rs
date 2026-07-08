@@ -1,7 +1,8 @@
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
-use crate::{Bitboard, Piece, Square};
+use crate::{Bitboard, Piece, PieceType, Side, Square};
 
+#[derive(PartialEq, Eq)]
 pub struct Move {
     piece: Piece,
     from: Square,
@@ -14,13 +15,13 @@ impl Move {
     }
 }
 
-struct MoveGenerator {
-    knight_moves: [Bitboard; Square::COUNT],
+pub(super) struct MoveGenerator {
+    pub(super) knight_moves: [Bitboard; Square::COUNT],
     king_moves: [Bitboard; Square::COUNT],
 }
 
 impl MoveGenerator {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let knight_moves = KnightJump::precalculate_piece_moves();
         let king_moves = KingMove::precalculate_piece_moves();
 
@@ -28,6 +29,51 @@ impl MoveGenerator {
             knight_moves,
             king_moves,
         }
+    }
+
+    pub(super) fn legal_moves(
+        &self,
+        active_color: Side,
+        pieces: &[[Bitboard; PieceType::COUNT]; Side::COUNT],
+        squares: &[Option<Piece>; Square::COUNT],
+    ) -> Vec<Move> {
+        let mut legal_moves = Vec::new();
+
+        for piece_kind in PieceType::iter() {
+            let piece = Piece {
+                kind: piece_kind,
+                side: active_color,
+            };
+
+            let mut bitboard = pieces[active_color as usize][piece_kind as usize];
+            let mut possible_squares = Vec::new();
+
+            while let Some(square) = bitboard.pop() {
+                possible_squares.push(square);
+            }
+
+            for square in possible_squares {
+                // will fix this later
+                #[allow(clippy::single_match)]
+                match piece_kind {
+                    PieceType::Knight => {
+                        let mut moves = self.knight_moves[square as usize];
+                        while let Some(move_square) = moves.pop() {
+                            if let Some(other_piece) = squares[move_square as usize]
+                                && other_piece.side == active_color
+                            {
+                                continue;
+                            }
+
+                            legal_moves.push(Move::new(piece, square, move_square));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        legal_moves
     }
 }
 

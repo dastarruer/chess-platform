@@ -11,7 +11,11 @@ use std::{
 
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
-use crate::{fen::FENString, square::Square};
+use crate::{
+    fen::FENString,
+    moves::{Move, MoveGenerator},
+    square::Square,
+};
 
 pub struct Chessboard {
     pieces: [[Bitboard; PieceType::COUNT]; Side::COUNT],
@@ -20,6 +24,7 @@ pub struct Chessboard {
     /// Bitboards are inefficient when it comes to figuring out what piece is
     /// on which square, so this is done with an array.
     squares: [Option<Piece>; Square::COUNT],
+    move_generator: MoveGenerator,
     game_stats: GameStats,
 }
 
@@ -34,6 +39,7 @@ impl Chessboard {
     ///
     /// - `fen_str` is an invalid FEN string.
     fn new(fen_str: &str) -> anyhow::Result<Self> {
+        let move_generator = MoveGenerator::new();
         let fen_str = FENString::try_parse(fen_str)?;
         let mut pieces = [[Bitboard::empty(); PieceType::COUNT]; Side::COUNT];
         let mut squares = [None; Square::COUNT];
@@ -52,8 +58,15 @@ impl Chessboard {
         Ok(Chessboard {
             pieces,
             squares,
+            move_generator,
             game_stats: fen_str.game_stats,
         })
+    }
+
+    pub fn legal_moves(&self) -> Vec<Move> {
+        let active_color = self.game_stats.active_color;
+        self.move_generator
+            .legal_moves(active_color, &self.pieces, &self.squares)
     }
 
     /// Return a `Bitboard` containing squares occupied by a specific piece
@@ -133,6 +146,26 @@ impl Bitboard {
 
     fn empty() -> Self {
         Self { bitboard: 0 }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.bitboard == 0
+    }
+
+    /// Pops the least significant bit from the bitboard, and returns it as a
+    /// [`Square`].
+    ///
+    /// Returns `None` if bitboard is empty.
+    fn pop(&mut self) -> Option<Square> {
+        // Check early to prevent overflow
+        if self.bitboard == 0 {
+            return None;
+        }
+
+        let index = self.bitboard.trailing_zeros() as u8;
+        self.bitboard &= self.bitboard - 1; // Fun trick to quickly remove the lsb
+
+        Square::try_from(index).ok()
     }
 
     #[cfg(test)]
@@ -450,6 +483,61 @@ mod tests {
             "#};
 
             assert_eq!(board.to_string(), expected);
+        }
+
+        #[test]
+        fn pop() {
+            let h2 = Square::H2;
+            let mut board = Bitboard::new(h2.mask());
+            assert_eq!(board.pop().expect("Bitboard should not be empty"), h2);
+        }
+    }
+
+    #[test]
+    fn default_knight_moves() {
+        let chessboard = Chessboard::default();
+
+        let moves = chessboard.legal_moves();
+
+        let expected = vec![
+            Move::new(
+                Piece {
+                    kind: PieceType::Knight,
+                    side: Side::White,
+                },
+                Square::B1,
+                Square::A3,
+            ),
+            Move::new(
+                Piece {
+                    kind: PieceType::Knight,
+                    side: Side::White,
+                },
+                Square::B1,
+                Square::C3,
+            ),
+            Move::new(
+                Piece {
+                    kind: PieceType::Knight,
+                    side: Side::White,
+                },
+                Square::G1,
+                Square::F3,
+            ),
+            Move::new(
+                Piece {
+                    kind: PieceType::Knight,
+                    side: Side::White,
+                },
+                Square::G1,
+                Square::H3,
+            ),
+        ];
+
+        assert_eq!(moves.len(), expected.len());
+
+        for mv in expected {
+            assert!(moves.contains(&mv));
         }
     }
 }
