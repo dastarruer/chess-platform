@@ -129,8 +129,8 @@ impl Display for Chessboard {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Piece {
-    kind: PieceType,
-    side: Side,
+    pub kind: PieceType,
+    pub side: Side,
 }
 
 /// A bitboard representation of a chessboard.
@@ -508,7 +508,7 @@ mod tests {
             let chessboard = Chessboard::default();
             let moves = chessboard.legal_moves();
             for mv in moves {
-                assert_ne!(mv.piece().kind, PieceType::King);
+                assert_ne!(mv.piece.kind, PieceType::King);
             }
 
             // King moves with capturable enemy piece and uncapturable
