@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::{Context, anyhow, bail};
 use strum::{EnumCount, EnumIter, FromRepr};
 
 #[derive(EnumCount, EnumIter, Clone, Copy, PartialEq, Eq, Debug, FromRepr)]
@@ -126,7 +126,7 @@ impl TryFrom<&str> for Square {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if value.len() != 2 {
-            return Err(anyhow!("'{value}' is an invalid square"));
+            bail!("'{value}' is an invalid square")
         }
 
         let mut chars = value.chars();
@@ -177,9 +177,7 @@ where
             .with_context(|| format!("Adding {n} to {self} is invalid as it causes an overflow"))?;
 
         if next > Self::COUNT as u8 {
-            return Err(anyhow!(
-                "Adding {n} to {self} is invalid as it goes out of bounds"
-            ));
+            bail!("Adding {n} to {self} is invalid as it goes out of bounds")
         }
 
         Ok(Self::try_from(next)?)

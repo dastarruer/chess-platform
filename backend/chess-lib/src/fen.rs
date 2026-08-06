@@ -21,9 +21,7 @@ impl FENString {
         let mut fields = fen_str.split_ascii_whitespace();
 
         if fields.clone().count() != EXPECTED_NUM_FIELDS {
-            return Err(anyhow!(
-                "FEN string contains more fields than should exist: {fen_str}"
-            ));
+            bail!("FEN string contains more fields than should exist: {fen_str}")
         }
 
         let position = fields.next().context("FEN string is empty")?;
@@ -82,9 +80,9 @@ impl FENString {
 
         let num_ranks = position.matches('/').count() + 1; // Add one to account for the 8th rank
         if num_ranks != EXPECTED_RANKS {
-            return Err(anyhow!(
+            bail!(
                 "FEN string position field contains {num_ranks} ranks instead of {EXPECTED_RANKS} ranks: {position}",
-            ));
+            );
         }
 
         let mut piece_positions: [[Vec<Square>; PieceType::COUNT]; Side::COUNT] =
@@ -99,9 +97,9 @@ impl FENString {
             match fen_char {
                 FENPosChars::NewRank => {
                     if !file_cursor.is_end() {
-                        return Err(anyhow!(
+                        bail!(
                             "FEN string position field contains less than 8 files in a rank: {position}",
-                        ));
+                        )
                     }
 
                     cur_rank = cur_rank.prev(1)?;
@@ -147,9 +145,9 @@ impl FENString {
     /// - Field contains an invalid character.
     fn try_parse_active_color(active_color: &str) -> anyhow::Result<Side> {
         if active_color.len() != 1 {
-            return Err(anyhow!(
+            bail!(
                 "FEN active color field '{active_color}' length is invalid (must be a single char)"
-            ));
+            )
         }
 
         match active_color {
@@ -177,9 +175,7 @@ impl FENString {
         castle_rights_field: &str,
     ) -> anyhow::Result<[CastleRights; Side::COUNT]> {
         if castle_rights_field.len() > 4 || castle_rights_field.is_empty() {
-            return Err(anyhow!(
-                "FEN castle rights field '{castle_rights_field}' length is invalid"
-            ));
+            bail!("FEN castle rights field '{castle_rights_field}' length is invalid")
         }
 
         let mut castle_rights = [CastleRights::Neither; Side::COUNT];
@@ -193,9 +189,7 @@ impl FENString {
                 | (FENCastleChars::Queen(side), FENCastleChars::Queen(prev_side))
                     if prev_side != side =>
                 {
-                    return Err(anyhow!(
-                        "FEN castle rights field '{castle_rights_field}' is invalid"
-                    ));
+                    bail!("FEN castle rights field '{castle_rights_field}' is invalid")
                 }
                 _ => {}
             }
@@ -203,18 +197,14 @@ impl FENString {
             match fen_char {
                 FENCastleChars::Neither if castle_rights_field.len() == 1 => break,
                 FENCastleChars::Neither => {
-                    return Err(anyhow!(
-                        "FEN castle rights field '{castle_rights_field}' is invalid"
-                    ));
+                    bail!("FEN castle rights field '{castle_rights_field}' is invalid")
                 }
                 FENCastleChars::King(side) => {
                     let rights = &mut castle_rights[side as usize];
                     *rights = match *rights {
                         CastleRights::Neither => CastleRights::King,
                         _ => {
-                            return Err(anyhow!(
-                                "FEN castle rights field '{castle_rights_field}' is invalid"
-                            ));
+                            bail!("FEN castle rights field '{castle_rights_field}' is invalid")
                         }
                     };
                 }
@@ -224,9 +214,7 @@ impl FENString {
                         CastleRights::Neither => CastleRights::Queen,
                         CastleRights::King => CastleRights::KingQueen,
                         _ => {
-                            return Err(anyhow!(
-                                "FEN castle rights field '{castle_rights_field}' is invalid"
-                            ));
+                            bail!("FEN castle rights field '{castle_rights_field}' is invalid")
                         }
                     };
                 }
@@ -283,9 +271,7 @@ impl FENString {
 
         // Enforce the 50-move rule
         if halfmoves > 100 {
-            return Err(anyhow!(
-                "Number of halfmoves exceeds the 50-move rule: {halfmoves}"
-            ));
+            bail!("Number of halfmoves exceeds the 50-move rule: {halfmoves}")
         }
 
         Ok(halfmoves)
@@ -307,7 +293,7 @@ impl FENString {
             .with_context(|| format!("FEN fullmoves field is invalid: {fullmoves}"))?;
 
         if fullmoves == 0 {
-            return Err(anyhow!("Number of fullmoves cannot equal 0: {fullmoves}"));
+            bail!("Number of fullmoves cannot equal 0: {fullmoves}");
         }
 
         Ok(fullmoves)
