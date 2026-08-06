@@ -169,7 +169,7 @@ where
     ///
     /// - Resulting conversion goes out of bounds.
     ///
-    /// /// # Examples
+    /// # Examples
     ///
     /// ```rust
     /// # use chess_lib::square::{Rank, TryNext};
