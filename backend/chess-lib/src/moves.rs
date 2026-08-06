@@ -127,17 +127,16 @@ where
             let cur_rank = from.rank();
             let cur_file = from.file();
 
-            while let Ok(square) = to.try_offset(mv.offset()) {
-                to = square;
-
-                if (!mv.is_file_change() && to.file() != cur_file)
-                    || (!mv.is_rank_change() && to.rank() != cur_rank)
+            while let Ok(next) = to.try_offset(mv.offset()) {
+                if (!mv.is_file_change() && next.file() != cur_file)
+                    || (!mv.is_rank_change() && next.rank() != cur_rank)
                 {
                     break;
                 }
 
-                let is_friendly = friendly.contains(square);
-                let is_opposition = opposition.contains(square);
+                to = next;
+                let is_friendly = friendly.contains(to);
+                let is_opposition = opposition.contains(to);
 
                 if is_friendly {
                     break;
