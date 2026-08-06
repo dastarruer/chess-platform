@@ -1,9 +1,9 @@
-use anyhow::{Context, anyhow};
+use anyhow::{Context, anyhow, bail};
 use strum::EnumCount;
 
 use crate::{
     CastleRights, GameStats, PieceType, Side, Square,
-    square::{File, Rank, TryNext, TryPrevious},
+    square::{File, Rank, TryPrevious},
 };
 
 /// A format to store chess positions in an easily parsable string.
@@ -90,7 +90,7 @@ impl FENString {
         let mut piece_positions: [[Vec<Square>; PieceType::COUNT]; Side::COUNT] =
             std::array::from_fn(|_| std::array::from_fn(|_| Vec::new()));
 
-        let mut cur_file = File::A;
+        let mut file_cursor = FENFileCursor::default();
         let mut cur_rank = Rank::R8; // FEN strings start from the 8th rank, not the 1st
 
         for char in position.chars() {
@@ -98,39 +98,35 @@ impl FENString {
 
             match fen_char {
                 FENPosChars::NewRank => {
-                    if cur_file != File::H {
+                    if !file_cursor.is_end() {
                         return Err(anyhow!(
                             "FEN string position field contains less than 8 files in a rank: {position}",
                         ));
                     }
 
                     cur_rank = cur_rank.prev(1)?;
-                    cur_file = File::A;
+                    file_cursor.reset();
                 }
                 FENPosChars::BlackPiece(piece) => {
-                    let square = Square::from_coordinates(cur_file, cur_rank);
+                    let file = File::try_from(file_cursor)
+                        .expect("FEN file cursor index value should be valid");
+                    let square = Square::from_coordinates(file, cur_rank);
                     piece_positions[Side::Black as usize][piece as usize].push(square);
-                    cur_file = if cur_file != File::H {
-                        cur_file
-                            .next(1)
-                            .expect("Moving to next file should not panic")
-                    } else {
-                        cur_file
-                    };
+                    file_cursor
+                        .advance_by(1)
+                        .expect("file cursor should not advance past final rank");
                 }
                 FENPosChars::WhitePiece(piece) => {
-                    let square = Square::from_coordinates(cur_file, cur_rank);
+                    let file = File::try_from(file_cursor)
+                        .expect("FEN file cursor index value should be valid");
+                    let square = Square::from_coordinates(file, cur_rank);
                     piece_positions[Side::White as usize][piece as usize].push(square);
-                    cur_file = if cur_file != File::H {
-                        cur_file
-                            .next(1)
-                            .expect("Moving to next file should not panic")
-                    } else {
-                        cur_file
-                    };
+                    file_cursor
+                        .advance_by(1)
+                        .expect("file cursor should not advance past final rank");
                 }
                 FENPosChars::EmptySquares(n) => {
-                    cur_file = cur_file.next(n - 1)?;
+                    file_cursor.advance_by(n)?;
                 }
             }
         }
@@ -318,6 +314,55 @@ impl FENString {
     }
 }
 
+#[derive(Default, Clone, Copy)]
+/// A file cursor specifically for FEN strings.
+///
+/// [`File`] is not sufficient because FEN strings include an additional 8th
+/// index to signify the end of a rank, making this necessary to handle that
+/// edge case.
+struct FENFileCursor {
+    idx: u8,
+}
+
+impl FENFileCursor {
+    fn is_end(&self) -> bool {
+        self.idx == 8
+    }
+
+    fn reset(&mut self) {
+        self.idx = 0;
+    }
+
+    /// Advance cursor by `n` values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - File index overflows advances past the final rank.
+    fn advance_by(&mut self, n: u8) -> anyhow::Result<()> {
+        let next = self.idx.checked_add(n).context("file cursor overflowed")?;
+        if next > 8 {
+            bail!("file cursor advanced past final rank")
+        }
+
+        self.idx = next;
+        Ok(())
+    }
+}
+
+impl TryFrom<FENFileCursor> for File {
+    type Error = anyhow::Error;
+
+    fn try_from(value: FENFileCursor) -> Result<Self, Self::Error> {
+        let idx = value.idx;
+        if idx >= 8 {
+            bail!("{idx} is not a valid FEN file cursor value")
+        }
+        Ok(File::try_from(idx).expect("file cursor value should be valid"))
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum FENCastleChars {
     King(Side),
@@ -428,6 +473,13 @@ mod tests {
                 fullmoves: 1,
             };
             assert_eq!(fen_str.game_stats, expected_stats);
+        }
+
+        #[test]
+        fn parse_valid_fen_str() {
+            let fen_str = "8/8/8/8/2PKp3/8/8/8 w - - 0 1";
+            let result = FENString::try_parse(fen_str);
+            assert!(result.is_ok(), "FEN parsing failed: {:?}", result.err());
         }
 
         #[test]
