@@ -4,18 +4,14 @@ use crate::{Bitboard, Piece, PieceType, Side, Square};
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Move {
-    piece: Piece,
-    from: Square,
-    to: Square,
+    pub piece: Piece,
+    pub from: Square,
+    pub to: Square,
 }
 
 impl Move {
     pub fn new(piece: Piece, from: Square, to: Square) -> Self {
         Self { piece, from, to }
-    }
-
-    pub fn piece(&self) -> &Piece {
-        &self.piece
     }
 }
 
