@@ -2,7 +2,7 @@ use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
 use crate::{Bitboard, Piece, PieceType, Side, Square};
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Move {
     piece: Piece,
     from: Square,
@@ -12,6 +12,10 @@ pub struct Move {
 impl Move {
     pub fn new(piece: Piece, from: Square, to: Square) -> Self {
         Self { piece, from, to }
+    }
+
+    pub fn piece(&self) -> &Piece {
+        &self.piece
     }
 }
 
