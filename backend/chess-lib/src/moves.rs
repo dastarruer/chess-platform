@@ -53,11 +53,22 @@ impl MoveGenerator {
             }
 
             for square in possible_squares {
-                // will fix this later
-                #[allow(clippy::single_match)]
                 match piece_kind {
                     PieceType::Knight => {
                         let mut moves = self.knight_moves[square as usize];
+                        while let Some(move_square) = moves.pop() {
+                            if let Some(other_piece) = squares[move_square as usize]
+                                && other_piece.side == active_color
+                            {
+                                continue;
+                            }
+
+                            legal_moves.push(Move::new(piece, square, move_square));
+                        }
+                    }
+                    PieceType::King => {
+                        // TODO: Disallow taking protected pieces
+                        let mut moves = self.king_moves[square as usize];
                         while let Some(move_square) = moves.pop() {
                             if let Some(other_piece) = squares[move_square as usize]
                                 && other_piece.side == active_color
