@@ -5,12 +5,12 @@ An online chess platform based on existing platforms such as
 
 ## Planned features
 
-- [] A Rust library that models a chessboard, allowing the consumer to make
-  legal moves until the game ends
-- [] A Rust implementation of a chess engine, which the user can play against
-  in the frontend
-- [] A frontend which allows a user to make moves on a chessboard
-- [] Multiplayer chess
+- [ ] A Rust library that models a chessboard, allowing the consumer to make
+      legal moves until the game ends
+- [ ] A Rust implementation of a chess engine, which the user can play against
+      in the frontend
+- [ ] A frontend which allows a user to make moves on a chessboard
+- [ ] Multiplayer chess
 
 ## Architecture
 
