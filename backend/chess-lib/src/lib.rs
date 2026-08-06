@@ -38,7 +38,7 @@ impl Chessboard {
     /// Returns an error if:
     ///
     /// - `fen_str` is an invalid FEN string.
-    fn new(fen_str: &str) -> anyhow::Result<Self> {
+    pub fn new(fen_str: &str) -> anyhow::Result<Self> {
         let move_generator = MoveGenerator::new();
         let fen_str = FENString::try_parse(fen_str)?;
         let mut pieces = [[Bitboard::empty(); PieceType::COUNT]; Side::COUNT];
