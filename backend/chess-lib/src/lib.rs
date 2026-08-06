@@ -255,6 +255,15 @@ pub enum Side {
     Black = 1,
 }
 
+impl Side {
+    pub fn opposite(&self) -> Self {
+        match self {
+            Self::White => Self::Black,
+            Self::Black => Self::White,
+        }
+    }
+}
+
 #[derive(EnumCount, EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PieceType {
     King = 0,
