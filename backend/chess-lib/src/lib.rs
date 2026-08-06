@@ -127,7 +127,7 @@ impl Display for Chessboard {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Piece {
     pub kind: PieceType,
     pub side: Side,
@@ -166,6 +166,10 @@ impl Bitboard {
         self.bitboard &= self.bitboard - 1; // Fun trick to quickly remove the lsb
 
         Square::try_from(index).ok()
+    }
+
+    fn contains(&self, square: Square) -> bool {
+        (self.bitboard & square.mask()) != 0
     }
 
     #[cfg(test)]
@@ -249,7 +253,7 @@ struct GameStats {
     fullmoves: u16,
 }
 
-#[derive(EnumCount, EnumIter, Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(EnumCount, EnumIter, Debug, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
 pub enum Side {
     White = 0,
     Black = 1,
@@ -264,7 +268,7 @@ impl Side {
     }
 }
 
-#[derive(EnumCount, EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(EnumCount, EnumIter, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PieceType {
     King = 0,
     Knight = 1,
@@ -584,6 +588,41 @@ mod tests {
             for mv in expected {
                 assert!(moves.contains(&mv));
             }
+        }
+
+        #[test]
+        fn rook_moves() {
+            const ROOK: Piece = Piece {
+                kind: PieceType::Rook,
+                side: Side::White,
+            };
+            const FROM: Square = Square::D5;
+
+            // Position with rook on d5 in center of empty board
+            let chessboard =
+                Chessboard::new("8/8/8/3R4/8/8/8/8 w - - 0 1").expect("FEN string should be valid");
+            let mut legal_moves = chessboard.legal_moves();
+            let mut expected = vec![
+                Move::new(ROOK, FROM, Square::D1),
+                Move::new(ROOK, FROM, Square::D2),
+                Move::new(ROOK, FROM, Square::D3),
+                Move::new(ROOK, FROM, Square::D4),
+                Move::new(ROOK, FROM, Square::D6),
+                Move::new(ROOK, FROM, Square::D7),
+                Move::new(ROOK, FROM, Square::D8),
+                Move::new(ROOK, FROM, Square::C5),
+                Move::new(ROOK, FROM, Square::B5),
+                Move::new(ROOK, FROM, Square::A5),
+                Move::new(ROOK, FROM, Square::E5),
+                Move::new(ROOK, FROM, Square::F5),
+                Move::new(ROOK, FROM, Square::G5),
+                Move::new(ROOK, FROM, Square::H5),
+            ];
+
+            legal_moves.sort();
+            expected.sort();
+
+            assert_eq!(legal_moves, expected);
         }
     }
 }

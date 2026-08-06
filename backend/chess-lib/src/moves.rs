@@ -2,7 +2,7 @@ use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
 use crate::{Bitboard, Piece, PieceType, Side, Square};
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Move {
     pub piece: Piece,
     pub from: Square,
@@ -38,6 +38,12 @@ impl MoveGenerator {
         squares: &[Option<Piece>; Square::COUNT],
     ) -> Vec<Move> {
         let mut legal_moves = Vec::new();
+        let friendly = pieces[active_color as usize]
+            .iter()
+            .fold(Bitboard::empty(), |friendly, bb| friendly | *bb);
+        let opposition = pieces[active_color.opposite() as usize]
+            .iter()
+            .fold(Bitboard::empty(), |opposing, bb| opposing | *bb);
 
         for piece_kind in PieceType::iter() {
             let piece = Piece {
@@ -79,12 +85,109 @@ impl MoveGenerator {
                             legal_moves.push(Move::new(piece, square, move_square));
                         }
                     }
+                    PieceType::Rook => {
+                        legal_moves.append(&mut RookMove::generate_legal_moves(
+                            &square, piece, friendly, opposition,
+                        ));
+                    }
                     _ => {}
                 }
             }
         }
 
         legal_moves
+    }
+}
+
+trait SlidingPieceMove
+where
+    Self: IntoEnumIterator + Copy,
+{
+    const PIECE: PieceType;
+
+    /// Return the bit offset of the move.
+    fn offset(&self) -> i8;
+
+    /// Returns whether the move will result in a file change.
+    fn is_file_change(&self) -> bool;
+
+    /// Returns whether the move will result in a rank change.
+    fn is_rank_change(&self) -> bool;
+
+    fn generate_legal_moves(
+        from: &Square,
+        piece: Piece,
+        friendly: Bitboard,
+        opposition: Bitboard,
+    ) -> Vec<Move> {
+        let mut legal_moves = Vec::new();
+
+        for mv in Self::iter() {
+            let mut to = *from;
+            let cur_rank = from.rank();
+            let cur_file = from.file();
+
+            while let Ok(square) = to.try_offset(mv.offset()) {
+                to = square;
+
+                if (!mv.is_file_change() && to.file() != cur_file)
+                    || (!mv.is_rank_change() && to.rank() != cur_rank)
+                {
+                    break;
+                }
+
+                let is_friendly = friendly.contains(square);
+                let is_opposition = opposition.contains(square);
+
+                if is_friendly {
+                    break;
+                }
+
+                legal_moves.push(Move::new(piece, *from, to));
+
+                // Since an opposite piece can be taken, it's still a valid move
+                if is_opposition {
+                    break;
+                }
+            }
+        }
+
+        legal_moves
+    }
+}
+
+#[derive(Debug, Clone, Copy, EnumIter)]
+#[repr(i8)]
+enum RookMove {
+    North = 8,
+    South = -8,
+    East = 1,
+    West = -1,
+}
+
+impl SlidingPieceMove for RookMove {
+    const PIECE: PieceType = PieceType::Rook;
+
+    fn offset(&self) -> i8 {
+        *self as i8
+    }
+
+    fn is_file_change(&self) -> bool {
+        match self {
+            Self::North => false,
+            Self::South => false,
+            Self::East => true,
+            Self::West => true,
+        }
+    }
+
+    fn is_rank_change(&self) -> bool {
+        match self {
+            Self::North => true,
+            Self::South => true,
+            Self::East => false,
+            Self::West => false,
+        }
     }
 }
 

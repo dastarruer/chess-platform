@@ -1,7 +1,7 @@
 use anyhow::{Context, anyhow, bail};
 use strum::{EnumCount, EnumIter, FromRepr};
 
-#[derive(EnumCount, EnumIter, Clone, Copy, PartialEq, Eq, Debug, FromRepr)]
+#[derive(EnumCount, EnumIter, Clone, Copy, PartialEq, Eq, Debug, FromRepr, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum Square {
     A1 = 0,
@@ -120,7 +120,7 @@ impl Square {
             .expect("Converting square index to rank should not be invalid")
     }
 
-    fn try_offset(&self, n: i8) -> anyhow::Result<Self> {
+    pub(super) fn try_offset(&self, n: i8) -> anyhow::Result<Self> {
         let new = *self as i8 + n;
         Square::try_from(new as u8)
     }
