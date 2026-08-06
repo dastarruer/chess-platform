@@ -493,51 +493,88 @@ mod tests {
         }
     }
 
-    #[test]
-    fn default_knight_moves() {
-        let chessboard = Chessboard::default();
+    mod legal_moves {
+        use super::*;
+        use crate::Chessboard;
 
-        let moves = chessboard.legal_moves();
+        #[test]
+        fn king_moves() {
+            const KING: Piece = Piece {
+                kind: PieceType::King,
+                side: Side::White,
+            };
 
-        let expected = vec![
-            Move::new(
-                Piece {
-                    kind: PieceType::Knight,
-                    side: Side::White,
-                },
-                Square::B1,
-                Square::A3,
-            ),
-            Move::new(
-                Piece {
-                    kind: PieceType::Knight,
-                    side: Side::White,
-                },
-                Square::B1,
-                Square::C3,
-            ),
-            Move::new(
-                Piece {
-                    kind: PieceType::Knight,
-                    side: Side::White,
-                },
-                Square::G1,
-                Square::F3,
-            ),
-            Move::new(
-                Piece {
-                    kind: PieceType::Knight,
-                    side: Side::White,
-                },
-                Square::G1,
-                Square::H3,
-            ),
-        ];
+            // King moves in starting position
+            let chessboard = Chessboard::default();
+            let moves = chessboard.legal_moves();
+            for mv in moves {
+                assert_ne!(mv.piece().kind, PieceType::King);
+            }
 
-        assert_eq!(moves.len(), expected.len());
+            // King moves with capturable enemy piece and uncapturable
+            // same-side piece
+            const FROM: Square = Square::D4;
+            let chessboard = Chessboard::new("8/8/8/8/2PKp3/8/8/8 w - - 0 1")
+                .expect("FEN string should be valid");
+            let moves = chessboard.legal_moves();
+            let expected = vec![
+                Move::new(KING, FROM, Square::E4),
+                Move::new(KING, FROM, Square::E5),
+                Move::new(KING, FROM, Square::E3),
+                Move::new(KING, FROM, Square::D3),
+                Move::new(KING, FROM, Square::D5),
+                Move::new(KING, FROM, Square::C5),
+                Move::new(KING, FROM, Square::C3),
+            ];
+            assert_eq!(moves.len(), expected.len());
+            for mv in expected {
+                assert!(moves.contains(&mv));
+            }
+        }
 
-        for mv in expected {
-            assert!(moves.contains(&mv));
+        #[test]
+        fn knight_moves() {
+            // Knight moves in starting position
+            let chessboard = Chessboard::default();
+            let moves = chessboard.legal_moves();
+            let expected = vec![
+                Move::new(
+                    Piece {
+                        kind: PieceType::Knight,
+                        side: Side::White,
+                    },
+                    Square::B1,
+                    Square::A3,
+                ),
+                Move::new(
+                    Piece {
+                        kind: PieceType::Knight,
+                        side: Side::White,
+                    },
+                    Square::B1,
+                    Square::C3,
+                ),
+                Move::new(
+                    Piece {
+                        kind: PieceType::Knight,
+                        side: Side::White,
+                    },
+                    Square::G1,
+                    Square::F3,
+                ),
+                Move::new(
+                    Piece {
+                        kind: PieceType::Knight,
+                        side: Side::White,
+                    },
+                    Square::G1,
+                    Square::H3,
+                ),
+            ];
+            assert_eq!(moves.len(), expected.len());
+            for mv in expected {
+                assert!(moves.contains(&mv));
+            }
         }
     }
 }
