@@ -119,6 +119,11 @@ impl Square {
             .try_into()
             .expect("Converting square index to rank should not be invalid")
     }
+
+    fn try_offset(&self, n: i8) -> anyhow::Result<Self> {
+        let new = *self as i8 + n;
+        Square::try_from(new as u8)
+    }
 }
 
 impl TryFrom<&str> for Square {
@@ -390,5 +395,34 @@ mod tests {
         assert_eq!(Square::B1.file(), File::B);
         assert_eq!(Square::E4.file(), File::E);
         assert_eq!(Square::H8.file(), File::H);
+    }
+
+    #[test]
+    fn try_offset() {
+        let result = Square::A1.try_offset(8);
+        assert!(result.is_ok(), "shifting by 8 failed: {:?}", result.err());
+        assert_eq!(result.expect("shift should succeed"), Square::A2);
+
+        let result = Square::A2.try_offset(-8);
+        assert!(result.is_ok(), "shifting by -8 failed: {:?}", result.err());
+        assert_eq!(result.expect("shift should succeed"), Square::A1);
+
+        let result = Square::A1.try_offset(1);
+        assert!(result.is_ok(), "shifting by 1 failed: {:?}", result.err());
+        assert_eq!(result.expect("shift should succeed"), Square::B1);
+
+        let result = Square::B1.try_offset(-1);
+        assert!(result.is_ok(), "shifting by -1 failed: {:?}", result.err());
+        assert_eq!(result.expect("shift should succeed"), Square::A1);
+
+        let result = Square::B4.try_offset(7);
+        assert!(result.is_ok(), "shifting by 7 failed: {:?}", result.err());
+        assert_eq!(result.expect("shift should succeed"), Square::A5);
+
+        let result = Square::A8.try_offset(8);
+        assert!(result.is_err(), "shifting past board should fail");
+
+        let result = Square::A1.try_offset(-8);
+        assert!(result.is_err(), "shifting below board should fail");
     }
 }
