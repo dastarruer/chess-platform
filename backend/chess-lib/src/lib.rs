@@ -598,9 +598,9 @@ mod tests {
             };
             const FROM: Square = Square::D5;
 
-            // Position with rook on d5 in center of empty board
-            let chessboard =
-                Chessboard::new("8/8/8/3R4/8/8/8/8 w - - 0 1").expect("FEN string should be valid");
+            // Rook on d5 with pawns on b5 and g5.
+            let chessboard = Chessboard::new("8/8/8/1p1R2P1/8/8/8/8 w - - 0 1")
+                .expect("FEN string should be valid");
             let mut legal_moves = chessboard.legal_moves();
             let mut expected = vec![
                 Move::new(ROOK, FROM, Square::D1),
@@ -612,11 +612,8 @@ mod tests {
                 Move::new(ROOK, FROM, Square::D8),
                 Move::new(ROOK, FROM, Square::C5),
                 Move::new(ROOK, FROM, Square::B5),
-                Move::new(ROOK, FROM, Square::A5),
                 Move::new(ROOK, FROM, Square::E5),
                 Move::new(ROOK, FROM, Square::F5),
-                Move::new(ROOK, FROM, Square::G5),
-                Move::new(ROOK, FROM, Square::H5),
             ];
 
             legal_moves.sort();
