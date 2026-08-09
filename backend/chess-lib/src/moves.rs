@@ -90,6 +90,11 @@ impl MoveGenerator {
                             &square, piece, friendly, opposition,
                         ));
                     }
+                    PieceType::Bishop => {
+                        legal_moves.append(&mut BishopMove::generate_legal_moves(
+                            &square, piece, friendly, opposition,
+                        ));
+                    }
                     _ => {}
                 }
             }
@@ -187,6 +192,29 @@ impl From<RookMove> for Offset {
 
 impl SlidingPieceMove for RookMove {
     const PIECE: PieceType = PieceType::Rook;
+}
+
+#[derive(Debug, Clone, Copy, EnumIter)]
+enum BishopMove {
+    NorthWest,
+    SouthEast,
+    NorthEast,
+    SouthWest,
+}
+
+impl From<BishopMove> for Offset {
+    fn from(value: BishopMove) -> Self {
+        match value {
+            BishopMove::NorthWest => Self::NORTH_WEST,
+            BishopMove::SouthEast => Self::SOUTH_EAST,
+            BishopMove::NorthEast => Self::NORTH_EAST,
+            BishopMove::SouthWest => Self::SOUTH_WEST,
+        }
+    }
+}
+
+impl SlidingPieceMove for BishopMove {
+    const PIECE: PieceType = PieceType::Bishop;
 }
 
 #[derive(Debug, Clone, Copy, EnumIter)]
