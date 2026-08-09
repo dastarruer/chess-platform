@@ -22,8 +22,8 @@ pub(super) struct MoveGenerator {
 
 impl MoveGenerator {
     pub(super) fn new() -> Self {
-        let knight_moves = KnightJump::precalculate_piece_moves();
-        let king_moves = KingMove::precalculate_piece_moves();
+        let knight_moves = Self::precalculate_piece_moves::<KnightJump>();
+        let king_moves = Self::precalculate_piece_moves::<KingMove>();
 
         MoveGenerator {
             knight_moves,
@@ -97,6 +97,31 @@ impl MoveGenerator {
 
         legal_moves
     }
+
+    fn precalculate_piece_moves<T>() -> [Bitboard; Square::COUNT]
+    where
+        T: IntoEnumIterator + Copy,
+        Offset: From<T>,
+    {
+        let mut piece_moves = [Bitboard::empty(); Square::COUNT];
+
+        for from in Square::iter() {
+            let mut moves = Bitboard::empty();
+
+            for mv in T::iter() {
+                let Ok(to) = from.try_offset(Offset::from(mv)) else {
+                    continue;
+                };
+                let jump_mask = Bitboard::new(to.mask());
+
+                moves |= jump_mask;
+            }
+
+            piece_moves[from as usize] = moves;
+        }
+
+        piece_moves
+    }
 }
 
 trait SlidingPieceMove
@@ -164,33 +189,6 @@ impl SlidingPieceMove for RookMove {
     const PIECE: PieceType = PieceType::Rook;
 }
 
-trait NonSlidingPieceMove
-where
-    Self: IntoEnumIterator + Copy,
-    Offset: std::convert::From<Self>,
-{
-    fn precalculate_piece_moves() -> [Bitboard; Square::COUNT] {
-        let mut piece_moves = [Bitboard::empty(); Square::COUNT];
-
-        for from in Square::iter() {
-            let mut moves = Bitboard::empty();
-
-            for mv in Self::iter() {
-                let Ok(to) = from.try_offset(Offset::from(mv)) else {
-                    continue;
-                };
-                let jump_mask = Bitboard::new(to.mask());
-
-                moves |= jump_mask;
-            }
-
-            piece_moves[from as usize] = moves;
-        }
-
-        piece_moves
-    }
-}
-
 #[derive(Debug, Clone, Copy, EnumIter)]
 enum KingMove {
     North,
@@ -217,8 +215,6 @@ impl From<KingMove> for Offset {
         }
     }
 }
-
-impl NonSlidingPieceMove for KingMove {}
 
 #[derive(Debug, Clone, Copy, EnumIter)]
 #[allow(clippy::enum_variant_names)]
@@ -248,8 +244,6 @@ impl From<KnightJump> for Offset {
         }
     }
 }
-
-impl NonSlidingPieceMove for KnightJump {}
 
 #[cfg(test)]
 mod tests {
