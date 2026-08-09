@@ -1,6 +1,6 @@
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
-use crate::{Bitboard, Piece, PieceType, Side, Square};
+use crate::{Bitboard, Piece, PieceType, Side, Square, square::Offset};
 
 #[derive(PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Move {
@@ -102,38 +102,24 @@ impl MoveGenerator {
 trait SlidingPieceMove
 where
     Self: IntoEnumIterator + Copy,
+    Offset: std::convert::From<Self>,
 {
     const PIECE: PieceType;
-
-    /// Return the bit offset of the move.
-    fn offset(&self) -> i8;
-
-    /// Returns whether the move will result in a file change.
-    fn is_file_change(&self) -> bool;
-
-    /// Returns whether the move will result in a rank change.
-    fn is_rank_change(&self) -> bool;
 
     fn generate_legal_moves(
         from: &Square,
         piece: Piece,
         friendly: Bitboard,
         opposition: Bitboard,
-    ) -> Vec<Move> {
+    ) -> Vec<Move>
+    where
+        Offset: std::convert::From<Self>,
+    {
         let mut legal_moves = Vec::new();
 
         for mv in Self::iter() {
             let mut to = *from;
-            let cur_rank = from.rank();
-            let cur_file = from.file();
-
-            while let Ok(next) = to.try_offset(mv.offset()) {
-                if (!mv.is_file_change() && next.file() != cur_file)
-                    || (!mv.is_rank_change() && next.rank() != cur_rank)
-                {
-                    break;
-                }
-
+            while let Ok(next) = to.try_offset(Offset::from(mv)) {
                 to = next;
                 let is_friendly = friendly.contains(to);
                 let is_opposition = opposition.contains(to);
@@ -156,75 +142,49 @@ where
 }
 
 #[derive(Debug, Clone, Copy, EnumIter)]
-#[repr(i8)]
 enum RookMove {
-    North = 8,
-    South = -8,
-    East = 1,
-    West = -1,
+    North,
+    South,
+    East,
+    West,
+}
+
+impl From<RookMove> for Offset {
+    fn from(value: RookMove) -> Self {
+        match value {
+            RookMove::North => Self::NORTH,
+            RookMove::South => Self::SOUTH,
+            RookMove::East => Self::EAST,
+            RookMove::West => Self::WEST,
+        }
+    }
 }
 
 impl SlidingPieceMove for RookMove {
     const PIECE: PieceType = PieceType::Rook;
-
-    fn offset(&self) -> i8 {
-        *self as i8
-    }
-
-    fn is_file_change(&self) -> bool {
-        match self {
-            Self::North => false,
-            Self::South => false,
-            Self::East => true,
-            Self::West => true,
-        }
-    }
-
-    fn is_rank_change(&self) -> bool {
-        match self {
-            Self::North => true,
-            Self::South => true,
-            Self::East => false,
-            Self::West => false,
-        }
-    }
 }
 
 trait NonSlidingPieceMove
 where
     Self: IntoEnumIterator + Copy,
+    Offset: std::convert::From<Self>,
 {
-    /// Return the bit offset of the move.
-    fn offset(&self) -> i8;
-
-    /// Generate the required mask to filter illegal wraparound moves.
-    fn file_mask(&self) -> u64;
-
-    /// Shift a bit mask by the offset of the move.
-    fn shift(&self, mask: u64) -> u64 {
-        let shift = self.offset();
-
-        if shift.is_negative() {
-            return mask >> shift.unsigned_abs();
-        }
-        mask << shift
-    }
-
     fn precalculate_piece_moves() -> [Bitboard; Square::COUNT] {
         let mut piece_moves = [Bitboard::empty(); Square::COUNT];
 
-        for square in Square::iter() {
+        for from in Square::iter() {
             let mut moves = Bitboard::empty();
-            let piece_mask = square.mask();
 
-            for piece_move in Self::iter() {
-                let jump_mask =
-                    Bitboard::new(piece_move.shift(piece_mask) & piece_move.file_mask());
+            for mv in Self::iter() {
+                let Ok(to) = from.try_offset(Offset::from(mv)) else {
+                    continue;
+                };
+                let jump_mask = Bitboard::new(to.mask());
 
                 moves |= jump_mask;
             }
 
-            piece_moves[square as usize] = moves;
+            piece_moves[from as usize] = moves;
         }
 
         piece_moves
@@ -232,94 +192,64 @@ where
 }
 
 #[derive(Debug, Clone, Copy, EnumIter)]
-#[repr(i8)]
-/// Store bit shift offset values for each possible king move.
 enum KingMove {
-    North = 8,
-    South = -8,
-    East = 1,
-    West = -1,
-    NorthWest = 7,
-    SouthEast = -7,
-    NorthEast = 9,
-    SouthWest = -9,
+    North,
+    South,
+    East,
+    West,
+    NorthWest,
+    SouthEast,
+    NorthEast,
+    SouthWest,
 }
 
-impl NonSlidingPieceMove for KingMove {
-    fn offset(&self) -> i8 {
-        *self as i8
-    }
-
-    fn file_mask(&self) -> u64 {
-        const A_FILE: u64 = 0xFEFEFEFEFEFEFEFE;
-        const H_FILE: u64 = 0x7F7F7F7F7F7F7F7F;
-
-        match self {
-            KingMove::East | KingMove::NorthEast | KingMove::SouthEast => A_FILE,
-            KingMove::West | KingMove::NorthWest | KingMove::SouthWest => H_FILE,
-
-            // King has no potential wraparound moves, so return
-            // u64 with all bits set to 1
-            _ => u64::MAX,
+impl From<KingMove> for Offset {
+    fn from(value: KingMove) -> Self {
+        match value {
+            KingMove::North => Self::NORTH,
+            KingMove::South => Self::SOUTH,
+            KingMove::East => Self::EAST,
+            KingMove::West => Self::WEST,
+            KingMove::NorthWest => Self::NORTH_WEST,
+            KingMove::SouthEast => Self::SOUTH_EAST,
+            KingMove::NorthEast => Self::NORTH_EAST,
+            KingMove::SouthWest => Self::SOUTH_WEST,
         }
     }
 }
 
+impl NonSlidingPieceMove for KingMove {}
+
 #[derive(Debug, Clone, Copy, EnumIter)]
-#[repr(i8)]
 #[allow(clippy::enum_variant_names)]
 /// Store bit shift offset values for each possible knight jump.
 enum KnightJump {
-    TwoUpOneLeft = 15,
-    TwoUpOneRight = 17,
-    TwoRightOneUp = 10,
-    TwoRightOneDown = -6,
-    TwoDownOneLeft = -17,
-    TwoDownOneRight = -15,
-    TwoLeftOneUp = 6,
-    TwoLeftOneDown = -10,
+    TwoUpOneLeft,
+    TwoUpOneRight,
+    TwoRightOneUp,
+    TwoRightOneDown,
+    TwoDownOneLeft,
+    TwoDownOneRight,
+    TwoLeftOneUp,
+    TwoLeftOneDown,
 }
 
-impl NonSlidingPieceMove for KnightJump {
-    fn offset(&self) -> i8 {
-        *self as i8
-    }
-
-    fn file_mask(&self) -> u64 {
-        // Masks for files on the edge of the board
-        //
-        // For instance, A_FILE would look like:
-        // 01111111
-        // 01111111
-        // 01111111
-        // 01111111
-        // 01111111
-        // 01111111
-        // 01111111
-        // 01111111
-        const A_FILE: u64 = 0xFEFEFEFEFEFEFEFE;
-        const AB_FILE: u64 = 0xFCFCFCFCFCFCFCFC;
-        const H_FILE: u64 = 0x7F7F7F7F7F7F7F7F;
-        const GH_FILE: u64 = 0x3F3F3F3F3F3F3F3F;
-
-        match self {
-            // Jumps going 1 step LEFT can illegally wrap to the right edge (H-file) if starting on A.
-            KnightJump::TwoUpOneLeft | KnightJump::TwoDownOneLeft => H_FILE,
-
-            // Jumps going 2 steps LEFT can illegally wrap onto G or H if
-            // starting on A or B.
-            KnightJump::TwoLeftOneUp | KnightJump::TwoLeftOneDown => GH_FILE,
-
-            // Jumps going 1 step RIGHT can illegally wrap to the left edge
-            // (A-file) if starting on H.
-            KnightJump::TwoUpOneRight | KnightJump::TwoDownOneRight => A_FILE,
-
-            // Jumps going 2 steps RIGHT can illegally wrap onto A or B if
-            // starting on G or H.
-            KnightJump::TwoRightOneUp | KnightJump::TwoRightOneDown => AB_FILE,
+impl From<KnightJump> for Offset {
+    fn from(value: KnightJump) -> Self {
+        match value {
+            KnightJump::TwoUpOneLeft => Offset::TWO_UP_ONE_LEFT,
+            KnightJump::TwoUpOneRight => Offset::TWO_UP_ONE_RIGHT,
+            KnightJump::TwoRightOneUp => Offset::TWO_RIGHT_ONE_UP,
+            KnightJump::TwoRightOneDown => Offset::TWO_RIGHT_ONE_DOWN,
+            KnightJump::TwoDownOneLeft => Offset::TWO_DOWN_ONE_LEFT,
+            KnightJump::TwoDownOneRight => Offset::TWO_DOWN_ONE_RIGHT,
+            KnightJump::TwoLeftOneUp => Offset::TWO_LEFT_ONE_UP,
+            KnightJump::TwoLeftOneDown => Offset::TWO_LEFT_ONE_DOWN,
         }
     }
 }
+
+impl NonSlidingPieceMove for KnightJump {}
 
 #[cfg(test)]
 mod tests {

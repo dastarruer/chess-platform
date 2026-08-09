@@ -120,8 +120,15 @@ impl Square {
             .expect("Converting square index to rank should not be invalid")
     }
 
-    pub(super) fn try_offset(&self, n: i8) -> anyhow::Result<Self> {
-        let new = *self as i8 + n;
+    pub(super) fn try_offset(&self, offset: Offset) -> anyhow::Result<Self> {
+        let file = self.file() as i8 + offset.file.value();
+        let rank = self.rank() as i8 + offset.rank.value();
+
+        if !(0..8).contains(&file) || !(0..8).contains(&rank) {
+            bail!("offset shift goes out of bounds")
+        }
+
+        let new = *self as i8 + offset.shift_value();
         Square::try_from(new as u8)
     }
 }
@@ -341,6 +348,150 @@ impl From<Rank> for u8 {
 impl TryNext for Rank {}
 impl TryPrevious for Rank {}
 
+trait OffsetValue {
+    fn value(&self) -> i8;
+}
+
+#[derive(Clone, Copy)]
+enum OffsetDistance {
+    One,
+    Two,
+}
+
+impl OffsetValue for OffsetDistance {
+    fn value(&self) -> i8 {
+        match self {
+            Self::One => 1,
+            Self::Two => 2,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum OffsetFileKind {
+    East(OffsetDistance),
+    West(OffsetDistance),
+    None,
+}
+
+impl OffsetValue for OffsetFileKind {
+    fn value(&self) -> i8 {
+        match self {
+            Self::East(dist) => dist.value(),
+            Self::West(dist) => -dist.value(),
+            Self::None => 0,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum OffsetRankKind {
+    North(OffsetDistance),
+    South(OffsetDistance),
+    None,
+}
+
+impl OffsetValue for OffsetRankKind {
+    fn value(&self) -> i8 {
+        match self {
+            Self::North(dist) => dist.value(),
+            Self::South(dist) => -dist.value(),
+            Self::None => 0,
+        }
+    }
+}
+
+pub(super) struct Offset {
+    file: OffsetFileKind,
+    rank: OffsetRankKind,
+}
+
+impl Offset {
+    pub(super) const NORTH: Self = Self {
+        file: OffsetFileKind::None,
+        rank: OffsetRankKind::North(OffsetDistance::One),
+    };
+
+    pub(super) const SOUTH: Self = Self {
+        file: OffsetFileKind::None,
+        rank: OffsetRankKind::South(OffsetDistance::One),
+    };
+
+    pub(super) const EAST: Self = Self {
+        file: OffsetFileKind::East(OffsetDistance::One),
+        rank: OffsetRankKind::None,
+    };
+
+    pub(super) const WEST: Self = Self {
+        file: OffsetFileKind::West(OffsetDistance::One),
+        rank: OffsetRankKind::None,
+    };
+
+    pub(super) const NORTH_EAST: Self = Self {
+        file: OffsetFileKind::East(OffsetDistance::One),
+        rank: OffsetRankKind::North(OffsetDistance::One),
+    };
+
+    pub(super) const NORTH_WEST: Self = Self {
+        file: OffsetFileKind::West(OffsetDistance::One),
+        rank: OffsetRankKind::North(OffsetDistance::One),
+    };
+
+    pub(super) const SOUTH_EAST: Self = Self {
+        file: OffsetFileKind::East(OffsetDistance::One),
+        rank: OffsetRankKind::South(OffsetDistance::One),
+    };
+
+    pub(super) const SOUTH_WEST: Self = Self {
+        file: OffsetFileKind::West(OffsetDistance::One),
+        rank: OffsetRankKind::South(OffsetDistance::One),
+    };
+
+    pub(super) const TWO_UP_ONE_LEFT: Self = Self {
+        file: OffsetFileKind::West(OffsetDistance::One),
+        rank: OffsetRankKind::North(OffsetDistance::Two),
+    };
+
+    pub(super) const TWO_UP_ONE_RIGHT: Self = Self {
+        file: OffsetFileKind::East(OffsetDistance::One),
+        rank: OffsetRankKind::North(OffsetDistance::Two),
+    };
+
+    pub(super) const TWO_RIGHT_ONE_UP: Self = Self {
+        file: OffsetFileKind::East(OffsetDistance::Two),
+        rank: OffsetRankKind::North(OffsetDistance::One),
+    };
+
+    pub(super) const TWO_RIGHT_ONE_DOWN: Self = Self {
+        file: OffsetFileKind::East(OffsetDistance::Two),
+        rank: OffsetRankKind::South(OffsetDistance::One),
+    };
+
+    pub(super) const TWO_DOWN_ONE_LEFT: Self = Self {
+        file: OffsetFileKind::West(OffsetDistance::One),
+        rank: OffsetRankKind::South(OffsetDistance::Two),
+    };
+
+    pub(super) const TWO_DOWN_ONE_RIGHT: Self = Self {
+        file: OffsetFileKind::East(OffsetDistance::One),
+        rank: OffsetRankKind::South(OffsetDistance::Two),
+    };
+
+    pub(super) const TWO_LEFT_ONE_UP: Self = Self {
+        file: OffsetFileKind::West(OffsetDistance::Two),
+        rank: OffsetRankKind::North(OffsetDistance::One),
+    };
+
+    pub(super) const TWO_LEFT_ONE_DOWN: Self = Self {
+        file: OffsetFileKind::West(OffsetDistance::Two),
+        rank: OffsetRankKind::South(OffsetDistance::One),
+    };
+
+    fn shift_value(&self) -> i8 {
+        self.file.value() + self.rank.value() * 8
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -399,30 +550,34 @@ mod tests {
 
     #[test]
     fn try_offset() {
-        let result = Square::A1.try_offset(8);
-        assert!(result.is_ok(), "shifting by 8 failed: {:?}", result.err());
+        let result = Square::A1.try_offset(Offset::NORTH);
+        assert!(result.is_ok(), "shifting north failed: {:?}", result.err());
         assert_eq!(result.expect("shift should succeed"), Square::A2);
 
-        let result = Square::A2.try_offset(-8);
-        assert!(result.is_ok(), "shifting by -8 failed: {:?}", result.err());
+        let result = Square::A2.try_offset(Offset::SOUTH);
+        assert!(result.is_ok(), "shifting south failed: {:?}", result.err());
         assert_eq!(result.expect("shift should succeed"), Square::A1);
 
-        let result = Square::A1.try_offset(1);
-        assert!(result.is_ok(), "shifting by 1 failed: {:?}", result.err());
+        let result = Square::A1.try_offset(Offset::EAST);
+        assert!(result.is_ok(), "shifting east failed: {:?}", result.err());
         assert_eq!(result.expect("shift should succeed"), Square::B1);
 
-        let result = Square::B1.try_offset(-1);
-        assert!(result.is_ok(), "shifting by -1 failed: {:?}", result.err());
+        let result = Square::B1.try_offset(Offset::WEST);
+        assert!(result.is_ok(), "shifting west failed: {:?}", result.err());
         assert_eq!(result.expect("shift should succeed"), Square::A1);
 
-        let result = Square::B4.try_offset(7);
-        assert!(result.is_ok(), "shifting by 7 failed: {:?}", result.err());
+        let result = Square::B4.try_offset(Offset::NORTH_WEST);
+        assert!(
+            result.is_ok(),
+            "shifting northwest failed: {:?}",
+            result.err()
+        );
         assert_eq!(result.expect("shift should succeed"), Square::A5);
 
-        let result = Square::A8.try_offset(8);
+        let result = Square::A8.try_offset(Offset::NORTH);
         assert!(result.is_err(), "shifting past board should fail");
 
-        let result = Square::A1.try_offset(-8);
+        let result = Square::A1.try_offset(Offset::SOUTH);
         assert!(result.is_err(), "shifting below board should fail");
     }
 }
