@@ -510,6 +510,22 @@ mod tests {
         use super::*;
         use crate::Chessboard;
 
+        fn compare_moves(lhs: Vec<Move>, rhs: Vec<Move>, piece_type: PieceType) {
+            let mut lhs: Vec<Move> = lhs
+                .into_iter()
+                .filter(|m| m.piece.kind == piece_type)
+                .collect();
+            let mut rhs: Vec<Move> = rhs
+                .into_iter()
+                .filter(|m| m.piece.kind == piece_type)
+                .collect();
+
+            lhs.sort();
+            rhs.sort();
+
+            assert_eq!(lhs, rhs);
+        }
+
         #[test]
         fn king_moves() {
             const KING: Piece = Piece {
@@ -650,6 +666,39 @@ mod tests {
             expected.sort();
 
             assert_eq!(legal_moves, expected);
+        }
+
+        #[test]
+        fn queen_moves() {
+            const QUEEN: Piece = Piece {
+                kind: PieceType::Queen,
+                side: Side::White,
+            };
+            const FROM: Square = Square::D5;
+
+            // Queen on d5 with multiple other pieces
+            let chessboard = Chessboard::new("8/5p2/8/2NQ2b1/2P1P3/8/8/8 w - - 0 1")
+                .expect("FEN string should be valid");
+            let legal_moves = chessboard.legal_moves();
+            let expected = vec![
+                Move::new(QUEEN, FROM, Square::D6),
+                Move::new(QUEEN, FROM, Square::D7),
+                Move::new(QUEEN, FROM, Square::D8),
+                Move::new(QUEEN, FROM, Square::D4),
+                Move::new(QUEEN, FROM, Square::D3),
+                Move::new(QUEEN, FROM, Square::D2),
+                Move::new(QUEEN, FROM, Square::D1),
+                Move::new(QUEEN, FROM, Square::E5),
+                Move::new(QUEEN, FROM, Square::F5),
+                Move::new(QUEEN, FROM, Square::G5),
+                Move::new(QUEEN, FROM, Square::E6),
+                Move::new(QUEEN, FROM, Square::F7),
+                Move::new(QUEEN, FROM, Square::C6),
+                Move::new(QUEEN, FROM, Square::B7),
+                Move::new(QUEEN, FROM, Square::A8),
+            ];
+
+            compare_moves(legal_moves, expected, QUEEN.kind);
         }
     }
 }
