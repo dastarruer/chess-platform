@@ -563,47 +563,20 @@ mod tests {
 
         #[test]
         fn knight_moves() {
-            // Knight moves in starting position
+            const KNIGHT: Piece = Piece {
+                kind: PieceType::Knight,
+                side: Side::White,
+            };
+
             let chessboard = Chessboard::default();
-            let moves = chessboard.legal_moves();
+            let legal_moves = chessboard.legal_moves();
             let expected = vec![
-                Move::new(
-                    Piece {
-                        kind: PieceType::Knight,
-                        side: Side::White,
-                    },
-                    Square::B1,
-                    Square::A3,
-                ),
-                Move::new(
-                    Piece {
-                        kind: PieceType::Knight,
-                        side: Side::White,
-                    },
-                    Square::B1,
-                    Square::C3,
-                ),
-                Move::new(
-                    Piece {
-                        kind: PieceType::Knight,
-                        side: Side::White,
-                    },
-                    Square::G1,
-                    Square::F3,
-                ),
-                Move::new(
-                    Piece {
-                        kind: PieceType::Knight,
-                        side: Side::White,
-                    },
-                    Square::G1,
-                    Square::H3,
-                ),
+                Move::new(KNIGHT, Square::B1, Square::A3),
+                Move::new(KNIGHT, Square::B1, Square::C3),
+                Move::new(KNIGHT, Square::G1, Square::F3),
+                Move::new(KNIGHT, Square::G1, Square::H3),
             ];
-            assert_eq!(moves.len(), expected.len());
-            for mv in expected {
-                assert!(moves.contains(&mv));
-            }
+            compare_moves(legal_moves, expected, KNIGHT.kind);
         }
 
         #[test]
@@ -617,8 +590,8 @@ mod tests {
             // Rook on d5 with pawns on b5 and g5.
             let chessboard = Chessboard::new("8/8/8/1p1R2P1/8/8/8/8 w - - 0 1")
                 .expect("FEN string should be valid");
-            let mut legal_moves = chessboard.legal_moves();
-            let mut expected = vec![
+            let legal_moves = chessboard.legal_moves();
+            let expected = vec![
                 Move::new(ROOK, FROM, Square::D1),
                 Move::new(ROOK, FROM, Square::D2),
                 Move::new(ROOK, FROM, Square::D3),
@@ -632,10 +605,7 @@ mod tests {
                 Move::new(ROOK, FROM, Square::F5),
             ];
 
-            legal_moves.sort();
-            expected.sort();
-
-            assert_eq!(legal_moves, expected);
+            compare_moves(legal_moves, expected, ROOK.kind);
         }
 
         #[test]
@@ -649,8 +619,8 @@ mod tests {
             // Bishop on d5, white pawn on c4, black pawn on f7
             let chessboard = Chessboard::new("8/5p2/8/3B4/2P5/8/8/8 w - - 0 1")
                 .expect("FEN string should be valid");
-            let mut legal_moves = chessboard.legal_moves();
-            let mut expected = vec![
+            let legal_moves = chessboard.legal_moves();
+            let expected = vec![
                 Move::new(BISHOP, FROM, Square::E6),
                 Move::new(BISHOP, FROM, Square::F7),
                 Move::new(BISHOP, FROM, Square::E4),
@@ -662,10 +632,7 @@ mod tests {
                 Move::new(BISHOP, FROM, Square::A8),
             ];
 
-            legal_moves.sort();
-            expected.sort();
-
-            assert_eq!(legal_moves, expected);
+            compare_moves(legal_moves, expected, BISHOP.kind);
         }
 
         #[test]
