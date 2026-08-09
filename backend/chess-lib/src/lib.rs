@@ -621,5 +621,35 @@ mod tests {
 
             assert_eq!(legal_moves, expected);
         }
+
+        #[test]
+        fn bishop_moves() {
+            const BISHOP: Piece = Piece {
+                kind: PieceType::Bishop,
+                side: Side::White,
+            };
+            const FROM: Square = Square::D5;
+
+            // Bishop on d5, white pawn on c4, black pawn on f7
+            let chessboard = Chessboard::new("8/5p2/8/3B4/2P5/8/8/8 w - - 0 1")
+                .expect("FEN string should be valid");
+            let mut legal_moves = chessboard.legal_moves();
+            let mut expected = vec![
+                Move::new(BISHOP, FROM, Square::E6),
+                Move::new(BISHOP, FROM, Square::F7),
+                Move::new(BISHOP, FROM, Square::E4),
+                Move::new(BISHOP, FROM, Square::F3),
+                Move::new(BISHOP, FROM, Square::G2),
+                Move::new(BISHOP, FROM, Square::H1),
+                Move::new(BISHOP, FROM, Square::C6),
+                Move::new(BISHOP, FROM, Square::B7),
+                Move::new(BISHOP, FROM, Square::A8),
+            ];
+
+            legal_moves.sort();
+            expected.sort();
+
+            assert_eq!(legal_moves, expected);
+        }
     }
 }
