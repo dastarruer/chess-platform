@@ -447,6 +447,16 @@ impl Offset {
         rank: OffsetRankKind::South(OffsetDistance::One),
     };
 
+    pub(super) const TWO_UP: Self = Self {
+        file: OffsetFileKind::None,
+        rank: OffsetRankKind::North(OffsetDistance::Two),
+    };
+
+    pub(super) const TWO_DOWN: Self = Self {
+        file: OffsetFileKind::None,
+        rank: OffsetRankKind::South(OffsetDistance::Two),
+    };
+
     pub(super) const TWO_UP_ONE_LEFT: Self = Self {
         file: OffsetFileKind::West(OffsetDistance::One),
         rank: OffsetRankKind::North(OffsetDistance::Two),
