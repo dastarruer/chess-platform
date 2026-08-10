@@ -1,6 +1,46 @@
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
-use crate::{Bitboard, Piece, PieceType, Side, Square, square::Offset};
+use crate::{Bitboard, Offset, Piece, PieceType, Side, Square, square::Rank};
+
+/// All pieces whose moves can be pregenerated upon initialization, rather than
+/// needing to be generated dynamically based on the position. These pieces are
+/// non-sliding, meaning they don't 'slide' across the board.
+///
+/// Technically, pawns are also non-sliding, but since pawns cannot be
+/// pregenerated upon initialization, they aren't present here.
+#[derive(EnumIter, Clone, Copy)]
+enum NonSlidingPieceType {
+    King,
+    Knight,
+}
+
+impl From<NonSlidingPieceType> for PieceType {
+    fn from(value: NonSlidingPieceType) -> Self {
+        match value {
+            NonSlidingPieceType::King => Self::King,
+            NonSlidingPieceType::Knight => Self::Knight,
+        }
+    }
+}
+
+/// All pieces whose moves must be generated dynamically for every position.
+/// These pieces are sliding, meaning they can 'slide' around the board.
+#[derive(EnumIter, Clone, Copy)]
+enum SlidingPieceType {
+    Rook,
+    Bishop,
+    Queen,
+}
+
+impl From<SlidingPieceType> for PieceType {
+    fn from(value: SlidingPieceType) -> Self {
+        match value {
+            SlidingPieceType::Bishop => PieceType::Bishop,
+            SlidingPieceType::Queen => PieceType::Queen,
+            SlidingPieceType::Rook => PieceType::Rook,
+        }
+    }
+}
 
 #[derive(PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Move {
@@ -22,8 +62,8 @@ pub(super) struct MoveGenerator {
 
 impl MoveGenerator {
     pub(super) fn new() -> Self {
-        let knight_moves = Self::precalculate_piece_moves::<KnightJump>();
-        let king_moves = Self::precalculate_piece_moves::<KingMove>();
+        let knight_moves = Self::precalculate_piece_moves(NonSlidingPieceType::Knight);
+        let king_moves = Self::precalculate_piece_moves(NonSlidingPieceType::King);
 
         MoveGenerator {
             knight_moves,
@@ -45,81 +85,71 @@ impl MoveGenerator {
             .iter()
             .fold(Bitboard::empty(), |opposing, bb| opposing | *bb);
 
-        for piece_kind in PieceType::iter() {
+        for kind in NonSlidingPieceType::iter() {
             let piece = Piece {
-                kind: piece_kind,
+                kind: PieceType::from(kind),
                 side: active_color,
             };
 
-            let mut bitboard = pieces[active_color as usize][piece_kind as usize];
-            let mut possible_squares = Vec::new();
+            let table = match kind {
+                NonSlidingPieceType::King => self.king_moves,
+                NonSlidingPieceType::Knight => self.knight_moves,
+            };
 
+            let mut bitboard = pieces[active_color as usize][piece.kind as usize];
             while let Some(square) = bitboard.pop() {
-                possible_squares.push(square);
-            }
+                let mut moves = table[square as usize];
+                while let Some(move_square) = moves.pop() {
+                    if let Some(other_piece) = squares[move_square as usize]
+                        && other_piece.side == active_color
+                    {
+                        continue;
+                    }
 
-            for square in possible_squares {
-                match piece_kind {
-                    PieceType::Knight => {
-                        let mut moves = self.knight_moves[square as usize];
-                        while let Some(move_square) = moves.pop() {
-                            if let Some(other_piece) = squares[move_square as usize]
-                                && other_piece.side == active_color
-                            {
-                                continue;
-                            }
-
-                            legal_moves.push(Move::new(piece, square, move_square));
-                        }
-                    }
-                    PieceType::King => {
-                        // TODO: Disallow taking protected pieces
-                        let mut moves = self.king_moves[square as usize];
-                        while let Some(move_square) = moves.pop() {
-                            if let Some(other_piece) = squares[move_square as usize]
-                                && other_piece.side == active_color
-                            {
-                                continue;
-                            }
-
-                            legal_moves.push(Move::new(piece, square, move_square));
-                        }
-                    }
-                    PieceType::Rook => {
-                        legal_moves.append(&mut RookMove::generate_legal_moves(
-                            &square, piece, friendly, opposition,
-                        ));
-                    }
-                    PieceType::Bishop => {
-                        legal_moves.append(&mut BishopMove::generate_legal_moves(
-                            &square, piece, friendly, opposition,
-                        ));
-                    }
-                    PieceType::Queen => {
-                        legal_moves.append(&mut QueenMove::generate_legal_moves(
-                            &square, piece, friendly, opposition,
-                        ));
-                    }
-                    _ => {}
+                    legal_moves.push(Move::new(piece, square, move_square));
                 }
             }
+        }
+
+        for kind in SlidingPieceType::iter() {
+            let piece = Piece {
+                kind: PieceType::from(kind),
+                side: active_color,
+            };
+
+            let mut bitboard = pieces[active_color as usize][piece.kind as usize];
+            while let Some(square) = bitboard.pop() {
+                legal_moves.append(&mut Self::generate_legal_moves(
+                    &square, piece.side, kind, friendly, opposition,
+                ));
+            }
+        }
+
+        // Handle pawns separately because they are special
+        // just like me...
+        let piece = Piece {
+            kind: PieceType::Pawn,
+            side: active_color,
+        };
+        let mut pawns = pieces[active_color as usize][piece.kind as usize];
+        while let Some(square) = pawns.pop() {
+            legal_moves.append(&mut Self::generate_legal_pawn_moves(
+                &square, piece.side, friendly, opposition,
+            ));
         }
 
         legal_moves
     }
 
-    fn precalculate_piece_moves<T>() -> [Bitboard; Square::COUNT]
-    where
-        T: IntoEnumIterator + Copy,
-        Offset: From<T>,
-    {
+    fn precalculate_piece_moves(piece: NonSlidingPieceType) -> [Bitboard; Square::COUNT] {
+        let piece = PieceType::from(piece);
         let mut piece_moves = [Bitboard::empty(); Square::COUNT];
 
         for from in Square::iter() {
             let mut moves = Bitboard::empty();
 
-            for mv in T::iter() {
-                let Ok(to) = from.try_offset(Offset::from(mv)) else {
+            for offset in piece.offsets() {
+                let Ok(to) = from.try_offset(offset) else {
                     continue;
                 };
                 let jump_mask = Bitboard::new(to.mask());
@@ -132,29 +162,23 @@ impl MoveGenerator {
 
         piece_moves
     }
-}
-
-trait SlidingPieceMove
-where
-    Self: IntoEnumIterator + Copy,
-    Offset: std::convert::From<Self>,
-{
-    const PIECE: PieceType;
 
     fn generate_legal_moves(
         from: &Square,
-        piece: Piece,
+        side: Side,
+        kind: SlidingPieceType,
         friendly: Bitboard,
         opposition: Bitboard,
-    ) -> Vec<Move>
-    where
-        Offset: std::convert::From<Self>,
-    {
+    ) -> Vec<Move> {
+        let piece = Piece {
+            kind: PieceType::from(kind),
+            side,
+        };
         let mut legal_moves = Vec::new();
 
-        for mv in Self::iter() {
+        for offset in piece.kind.offsets() {
             let mut to = *from;
-            while let Ok(next) = to.try_offset(Offset::from(mv)) {
+            while let Ok(next) = to.try_offset(offset) {
                 to = next;
                 let is_friendly = friendly.contains(to);
                 let is_opposition = opposition.contains(to);
@@ -174,138 +198,43 @@ where
 
         legal_moves
     }
-}
 
-#[derive(Debug, Clone, Copy, EnumIter)]
-enum RookMove {
-    North,
-    South,
-    East,
-    West,
-}
+    fn generate_legal_pawn_moves(
+        from: &Square,
+        side: Side,
+        friendly: Bitboard,
+        opposition: Bitboard,
+    ) -> Vec<Move> {
+        let piece: Piece = Piece {
+            kind: PieceType::Pawn,
+            side,
+        };
 
-impl From<RookMove> for Offset {
-    fn from(value: RookMove) -> Self {
-        match value {
-            RookMove::North => Self::NORTH,
-            RookMove::South => Self::SOUTH,
-            RookMove::East => Self::EAST,
-            RookMove::West => Self::WEST,
+        let is_first_move = (from.rank() == Rank::R2 && side == Side::White)
+            || (from.rank() == Rank::R7 && side == Side::Black);
+        let mut offsets = match (is_first_move, side) {
+            (true, Side::White) => [Some(Offset::NORTH), Some(Offset::TWO_UP)],
+            (true, Side::Black) => [Some(Offset::SOUTH), Some(Offset::TWO_DOWN)],
+            (false, Side::White) => [Some(Offset::NORTH), None],
+            (false, Side::Black) => [Some(Offset::SOUTH), None],
         }
-    }
-}
+        .into_iter();
 
-impl SlidingPieceMove for RookMove {
-    const PIECE: PieceType = PieceType::Rook;
-}
+        let mut legal_moves = Vec::new();
+        while let Some(Some(offset)) = offsets.next()
+            && let Ok(to) = from.try_offset(&offset)
+        {
+            let is_occupied = friendly.contains(to) || opposition.contains(to);
 
-#[derive(Debug, Clone, Copy, EnumIter)]
-enum BishopMove {
-    NorthWest,
-    SouthEast,
-    NorthEast,
-    SouthWest,
-}
+            // Since the offsets start from one-square moves, we can break the loop as soon as a move is not possible (im a genius)
+            if is_occupied {
+                break;
+            }
 
-impl From<BishopMove> for Offset {
-    fn from(value: BishopMove) -> Self {
-        match value {
-            BishopMove::NorthWest => Self::NORTH_WEST,
-            BishopMove::SouthEast => Self::SOUTH_EAST,
-            BishopMove::NorthEast => Self::NORTH_EAST,
-            BishopMove::SouthWest => Self::SOUTH_WEST,
+            legal_moves.push(Move::new(piece, *from, to));
         }
-    }
-}
 
-impl SlidingPieceMove for BishopMove {
-    const PIECE: PieceType = PieceType::Bishop;
-}
-
-#[derive(Debug, Clone, Copy, EnumIter)]
-enum QueenMove {
-    North,
-    South,
-    East,
-    West,
-    NorthWest,
-    SouthEast,
-    NorthEast,
-    SouthWest,
-}
-
-impl From<QueenMove> for Offset {
-    fn from(value: QueenMove) -> Self {
-        match value {
-            QueenMove::North => Self::NORTH,
-            QueenMove::South => Self::SOUTH,
-            QueenMove::East => Self::EAST,
-            QueenMove::West => Self::WEST,
-            QueenMove::NorthWest => Self::NORTH_WEST,
-            QueenMove::SouthEast => Self::SOUTH_EAST,
-            QueenMove::NorthEast => Self::NORTH_EAST,
-            QueenMove::SouthWest => Self::SOUTH_WEST,
-        }
-    }
-}
-
-impl SlidingPieceMove for QueenMove {
-    const PIECE: PieceType = PieceType::Queen;
-}
-
-#[derive(Debug, Clone, Copy, EnumIter)]
-enum KingMove {
-    North,
-    South,
-    East,
-    West,
-    NorthWest,
-    SouthEast,
-    NorthEast,
-    SouthWest,
-}
-
-impl From<KingMove> for Offset {
-    fn from(value: KingMove) -> Self {
-        match value {
-            KingMove::North => Self::NORTH,
-            KingMove::South => Self::SOUTH,
-            KingMove::East => Self::EAST,
-            KingMove::West => Self::WEST,
-            KingMove::NorthWest => Self::NORTH_WEST,
-            KingMove::SouthEast => Self::SOUTH_EAST,
-            KingMove::NorthEast => Self::NORTH_EAST,
-            KingMove::SouthWest => Self::SOUTH_WEST,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, EnumIter)]
-#[allow(clippy::enum_variant_names)]
-/// Store bit shift offset values for each possible knight jump.
-enum KnightJump {
-    TwoUpOneLeft,
-    TwoUpOneRight,
-    TwoRightOneUp,
-    TwoRightOneDown,
-    TwoDownOneLeft,
-    TwoDownOneRight,
-    TwoLeftOneUp,
-    TwoLeftOneDown,
-}
-
-impl From<KnightJump> for Offset {
-    fn from(value: KnightJump) -> Self {
-        match value {
-            KnightJump::TwoUpOneLeft => Offset::TWO_UP_ONE_LEFT,
-            KnightJump::TwoUpOneRight => Offset::TWO_UP_ONE_RIGHT,
-            KnightJump::TwoRightOneUp => Offset::TWO_RIGHT_ONE_UP,
-            KnightJump::TwoRightOneDown => Offset::TWO_RIGHT_ONE_DOWN,
-            KnightJump::TwoDownOneLeft => Offset::TWO_DOWN_ONE_LEFT,
-            KnightJump::TwoDownOneRight => Offset::TWO_DOWN_ONE_RIGHT,
-            KnightJump::TwoLeftOneUp => Offset::TWO_LEFT_ONE_UP,
-            KnightJump::TwoLeftOneDown => Offset::TWO_LEFT_ONE_DOWN,
-        }
+        legal_moves
     }
 }
 

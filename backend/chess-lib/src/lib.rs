@@ -9,12 +9,12 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
 };
 
-use strum::{EnumCount, EnumIter, IntoEnumIterator};
+use strum::{Display, EnumCount, EnumIter, IntoEnumIterator};
 
 use crate::{
     fen::FENString,
     moves::{Move, MoveGenerator},
-    square::Square,
+    square::{Offset, Square},
 };
 
 pub struct Chessboard {
@@ -268,7 +268,7 @@ impl Side {
     }
 }
 
-#[derive(EnumCount, EnumIter, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(EnumCount, EnumIter, Clone, Copy, Debug, Display, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PieceType {
     King = 0,
     Knight = 1,
@@ -276,6 +276,42 @@ pub enum PieceType {
     Rook = 3,
     Queen = 4,
     Pawn = 5,
+}
+
+impl PieceType {
+    pub(crate) fn offsets(&self) -> &'static [Offset] {
+        match self {
+            PieceType::Rook => &[Offset::NORTH, Offset::SOUTH, Offset::EAST, Offset::WEST],
+            PieceType::Bishop => &[
+                Offset::NORTH_WEST,
+                Offset::NORTH_EAST,
+                Offset::SOUTH_WEST,
+                Offset::SOUTH_EAST,
+            ],
+            PieceType::Queen | PieceType::King => &[
+                Offset::NORTH,
+                Offset::SOUTH,
+                Offset::EAST,
+                Offset::WEST,
+                Offset::NORTH_WEST,
+                Offset::NORTH_EAST,
+                Offset::SOUTH_WEST,
+                Offset::SOUTH_EAST,
+            ],
+            PieceType::Knight => &[
+                Offset::TWO_UP_ONE_LEFT,
+                Offset::TWO_UP_ONE_RIGHT,
+                Offset::TWO_RIGHT_ONE_UP,
+                Offset::TWO_RIGHT_ONE_DOWN,
+                Offset::TWO_DOWN_ONE_LEFT,
+                Offset::TWO_DOWN_ONE_RIGHT,
+                Offset::TWO_LEFT_ONE_UP,
+                Offset::TWO_LEFT_ONE_DOWN,
+            ],
+            // handled separately, has its own rules
+            PieceType::Pawn => &[], // TODO: there's a better way of handling this probably
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -545,7 +581,7 @@ mod tests {
             const FROM: Square = Square::D4;
             let chessboard = Chessboard::new("8/8/8/8/2PKp3/8/8/8 w - - 0 1")
                 .expect("FEN string should be valid");
-            let moves = chessboard.legal_moves();
+            let legal_moves = chessboard.legal_moves();
             let expected = vec![
                 Move::new(KING, FROM, Square::E4),
                 Move::new(KING, FROM, Square::E5),
@@ -555,10 +591,7 @@ mod tests {
                 Move::new(KING, FROM, Square::C5),
                 Move::new(KING, FROM, Square::C3),
             ];
-            assert_eq!(moves.len(), expected.len());
-            for mv in expected {
-                assert!(moves.contains(&mv));
-            }
+            compare_moves(legal_moves, expected, KING.kind);
         }
 
         #[test]
@@ -666,6 +699,41 @@ mod tests {
             ];
 
             compare_moves(legal_moves, expected, QUEEN.kind);
+        }
+
+        #[test]
+        fn pawn_moves() {
+            const WHITE_PAWN: Piece = Piece {
+                kind: PieceType::Pawn,
+                side: Side::White,
+            };
+            const BLACK_PAWN: Piece = Piece {
+                kind: PieceType::Pawn,
+                side: Side::Black,
+            };
+
+            // White pawn on g2, b5
+            let chessboard = Chessboard::new("8/8/8/8/1P6/8/6P1/8 w - - 0 1")
+                .expect("FEN string should be valid");
+            let legal_moves = chessboard.legal_moves();
+            let expected = vec![
+                Move::new(WHITE_PAWN, Square::G2, Square::G3),
+                Move::new(WHITE_PAWN, Square::G2, Square::G4),
+                Move::new(WHITE_PAWN, Square::B4, Square::B5),
+            ];
+            compare_moves(legal_moves, expected, WHITE_PAWN.kind);
+
+            // Black pawn
+            let chessboard = Chessboard::new("8/3pp3/p7/3P4/8/6p1/6P1/8 b - - 0 1")
+                .expect("FEN string should be valid");
+            let legal_moves = chessboard.legal_moves();
+            let expected = vec![
+                Move::new(BLACK_PAWN, Square::E7, Square::E6),
+                Move::new(BLACK_PAWN, Square::E7, Square::E5),
+                Move::new(BLACK_PAWN, Square::D7, Square::D6),
+                Move::new(BLACK_PAWN, Square::A6, Square::A5),
+            ];
+            compare_moves(legal_moves, expected, BLACK_PAWN.kind);
         }
     }
 }
