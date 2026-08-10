@@ -1,6 +1,6 @@
 use strum::{EnumCount, IntoEnumIterator};
 
-use crate::{Bitboard, Piece, PieceType, Side, Square};
+use crate::{Bitboard, Offset, Piece, PieceType, Side, Square, square::Rank};
 
 /// All pieces whose moves can be pregenerated upon initialization, rather than
 /// needing to be generated dynamically based on the position.
@@ -101,7 +101,11 @@ impl MoveGenerator {
                             legal_moves.push(Move::new(piece, square, move_square));
                         }
                     }
-                    PieceType::Pawn => {} // TODO
+                    PieceType::Pawn => {
+                        legal_moves.append(&mut Self::generate_legal_pawn_moves(
+                            &square, piece.side, friendly, opposition,
+                        ));
+                    }
                     _ => {
                         legal_moves.append(&mut Self::generate_legal_moves(
                             &square, piece, friendly, opposition,
@@ -162,6 +166,44 @@ impl MoveGenerator {
                     break;
                 }
             }
+        }
+
+        legal_moves
+    }
+
+    fn generate_legal_pawn_moves(
+        from: &Square,
+        side: Side,
+        friendly: Bitboard,
+        opposition: Bitboard,
+    ) -> Vec<Move> {
+        let piece: Piece = Piece {
+            kind: PieceType::Pawn,
+            side,
+        };
+
+        let is_first_move = (from.rank() == Rank::R2 && side == Side::White)
+            || (from.rank() == Rank::R7 && side == Side::Black);
+        let mut offsets = match (is_first_move, side) {
+            (true, Side::White) => [Some(Offset::NORTH), Some(Offset::TWO_UP)],
+            (true, Side::Black) => [Some(Offset::SOUTH), Some(Offset::TWO_DOWN)],
+            (false, Side::White) => [Some(Offset::NORTH), None],
+            (false, Side::Black) => [Some(Offset::SOUTH), None],
+        }
+        .into_iter();
+
+        let mut legal_moves = Vec::new();
+        while let Some(Some(offset)) = offsets.next()
+            && let Ok(to) = from.try_offset(&offset)
+        {
+            let is_occupied = friendly.contains(to) || opposition.contains(to);
+
+            // Since the offsets start from one-square moves, we can break the loop as soon as a move is not possible (im a genius)
+            if is_occupied {
+                break;
+            }
+
+            legal_moves.push(Move::new(piece, *from, to));
         }
 
         legal_moves

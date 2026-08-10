@@ -309,7 +309,7 @@ impl PieceType {
                 Offset::TWO_LEFT_ONE_DOWN,
             ],
             // handled separately, has its own rules
-            PieceType::Pawn => &[],
+            PieceType::Pawn => &[], // TODO: there's a better way of handling this probably
         }
     }
 }
@@ -581,7 +581,7 @@ mod tests {
             const FROM: Square = Square::D4;
             let chessboard = Chessboard::new("8/8/8/8/2PKp3/8/8/8 w - - 0 1")
                 .expect("FEN string should be valid");
-            let moves = chessboard.legal_moves();
+            let legal_moves = chessboard.legal_moves();
             let expected = vec![
                 Move::new(KING, FROM, Square::E4),
                 Move::new(KING, FROM, Square::E5),
@@ -591,10 +591,7 @@ mod tests {
                 Move::new(KING, FROM, Square::C5),
                 Move::new(KING, FROM, Square::C3),
             ];
-            assert_eq!(moves.len(), expected.len());
-            for mv in expected {
-                assert!(moves.contains(&mv));
-            }
+            compare_moves(legal_moves, expected, KING.kind);
         }
 
         #[test]
@@ -702,6 +699,41 @@ mod tests {
             ];
 
             compare_moves(legal_moves, expected, QUEEN.kind);
+        }
+
+        #[test]
+        fn pawn_moves() {
+            const WHITE_PAWN: Piece = Piece {
+                kind: PieceType::Pawn,
+                side: Side::White,
+            };
+            const BLACK_PAWN: Piece = Piece {
+                kind: PieceType::Pawn,
+                side: Side::Black,
+            };
+
+            // White pawn on g2, b5
+            let chessboard = Chessboard::new("8/8/8/8/1P6/8/6P1/8 w - - 0 1")
+                .expect("FEN string should be valid");
+            let legal_moves = chessboard.legal_moves();
+            let expected = vec![
+                Move::new(WHITE_PAWN, Square::G2, Square::G3),
+                Move::new(WHITE_PAWN, Square::G2, Square::G4),
+                Move::new(WHITE_PAWN, Square::B4, Square::B5),
+            ];
+            compare_moves(legal_moves, expected, WHITE_PAWN.kind);
+
+            // Black pawn
+            let chessboard = Chessboard::new("8/3pp3/p7/3P4/8/6p1/6P1/8 b - - 0 1")
+                .expect("FEN string should be valid");
+            let legal_moves = chessboard.legal_moves();
+            let expected = vec![
+                Move::new(BLACK_PAWN, Square::E7, Square::E6),
+                Move::new(BLACK_PAWN, Square::E7, Square::E5),
+                Move::new(BLACK_PAWN, Square::D7, Square::D6),
+                Move::new(BLACK_PAWN, Square::A6, Square::A5),
+            ];
+            compare_moves(legal_moves, expected, BLACK_PAWN.kind);
         }
     }
 }
