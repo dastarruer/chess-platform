@@ -1,19 +1,43 @@
-use strum::{EnumCount, IntoEnumIterator};
+use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
 use crate::{Bitboard, Offset, Piece, PieceType, Side, Square, square::Rank};
 
 /// All pieces whose moves can be pregenerated upon initialization, rather than
-/// needing to be generated dynamically based on the position.
-enum PregeneratedPieceType {
+/// needing to be generated dynamically based on the position. These pieces are
+/// non-sliding, meaning they don't 'slide' across the board.
+///
+/// Technically, pawns are also non-sliding, but since pawns cannot be
+/// pregenerated upon initialization, they aren't present here.
+#[derive(EnumIter, Clone, Copy)]
+enum NonSlidingPieceType {
     King,
     Knight,
 }
 
-impl From<PregeneratedPieceType> for PieceType {
-    fn from(value: PregeneratedPieceType) -> Self {
+impl From<NonSlidingPieceType> for PieceType {
+    fn from(value: NonSlidingPieceType) -> Self {
         match value {
-            PregeneratedPieceType::King => Self::King,
-            PregeneratedPieceType::Knight => Self::Knight,
+            NonSlidingPieceType::King => Self::King,
+            NonSlidingPieceType::Knight => Self::Knight,
+        }
+    }
+}
+
+/// All pieces whose moves must be generated dynamically for every position.
+/// These pieces are sliding, meaning they can 'slide' around the board.
+#[derive(EnumIter, Clone, Copy)]
+enum SlidingPieceType {
+    Rook,
+    Bishop,
+    Queen,
+}
+
+impl From<SlidingPieceType> for PieceType {
+    fn from(value: SlidingPieceType) -> Self {
+        match value {
+            SlidingPieceType::Bishop => PieceType::Bishop,
+            SlidingPieceType::Queen => PieceType::Queen,
+            SlidingPieceType::Rook => PieceType::Rook,
         }
     }
 }
@@ -38,8 +62,8 @@ pub(super) struct MoveGenerator {
 
 impl MoveGenerator {
     pub(super) fn new() -> Self {
-        let knight_moves = Self::precalculate_piece_moves(PregeneratedPieceType::Knight);
-        let king_moves = Self::precalculate_piece_moves(PregeneratedPieceType::King);
+        let knight_moves = Self::precalculate_piece_moves(NonSlidingPieceType::Knight);
+        let king_moves = Self::precalculate_piece_moves(NonSlidingPieceType::King);
 
         MoveGenerator {
             knight_moves,
@@ -61,64 +85,63 @@ impl MoveGenerator {
             .iter()
             .fold(Bitboard::empty(), |opposing, bb| opposing | *bb);
 
-        for piece_kind in PieceType::iter() {
+        for kind in NonSlidingPieceType::iter() {
             let piece = Piece {
-                kind: piece_kind,
+                kind: PieceType::from(kind),
                 side: active_color,
             };
 
-            let mut bitboard = pieces[active_color as usize][piece_kind as usize];
-            let mut possible_squares = Vec::new();
+            let table = match kind {
+                NonSlidingPieceType::King => self.king_moves,
+                NonSlidingPieceType::Knight => self.knight_moves,
+            };
 
+            let mut bitboard = pieces[active_color as usize][piece.kind as usize];
             while let Some(square) = bitboard.pop() {
-                possible_squares.push(square);
-            }
+                let mut moves = table[square as usize];
+                while let Some(move_square) = moves.pop() {
+                    if let Some(other_piece) = squares[move_square as usize]
+                        && other_piece.side == active_color
+                    {
+                        continue;
+                    }
 
-            for square in possible_squares {
-                match piece_kind {
-                    PieceType::Knight => {
-                        let mut moves = self.knight_moves[square as usize];
-                        while let Some(move_square) = moves.pop() {
-                            if let Some(other_piece) = squares[move_square as usize]
-                                && other_piece.side == active_color
-                            {
-                                continue;
-                            }
-
-                            legal_moves.push(Move::new(piece, square, move_square));
-                        }
-                    }
-                    PieceType::King => {
-                        // TODO: Disallow taking protected pieces
-                        let mut moves = self.king_moves[square as usize];
-                        while let Some(move_square) = moves.pop() {
-                            if let Some(other_piece) = squares[move_square as usize]
-                                && other_piece.side == active_color
-                            {
-                                continue;
-                            }
-
-                            legal_moves.push(Move::new(piece, square, move_square));
-                        }
-                    }
-                    PieceType::Pawn => {
-                        legal_moves.append(&mut Self::generate_legal_pawn_moves(
-                            &square, piece.side, friendly, opposition,
-                        ));
-                    }
-                    _ => {
-                        legal_moves.append(&mut Self::generate_legal_moves(
-                            &square, piece, friendly, opposition,
-                        ));
-                    }
+                    legal_moves.push(Move::new(piece, square, move_square));
                 }
             }
+        }
+
+        for kind in SlidingPieceType::iter() {
+            let piece = Piece {
+                kind: PieceType::from(kind),
+                side: active_color,
+            };
+
+            let mut bitboard = pieces[active_color as usize][piece.kind as usize];
+            while let Some(square) = bitboard.pop() {
+                legal_moves.append(&mut Self::generate_legal_moves(
+                    &square, piece.side, kind, friendly, opposition,
+                ));
+            }
+        }
+
+        // Handle pawns separately because they are special
+        // just like me...
+        let piece = Piece {
+            kind: PieceType::Pawn,
+            side: active_color,
+        };
+        let mut pawns = pieces[active_color as usize][piece.kind as usize];
+        while let Some(square) = pawns.pop() {
+            legal_moves.append(&mut Self::generate_legal_pawn_moves(
+                &square, piece.side, friendly, opposition,
+            ));
         }
 
         legal_moves
     }
 
-    fn precalculate_piece_moves(piece: PregeneratedPieceType) -> [Bitboard; Square::COUNT] {
+    fn precalculate_piece_moves(piece: NonSlidingPieceType) -> [Bitboard; Square::COUNT] {
         let piece = PieceType::from(piece);
         let mut piece_moves = [Bitboard::empty(); Square::COUNT];
 
@@ -142,10 +165,15 @@ impl MoveGenerator {
 
     fn generate_legal_moves(
         from: &Square,
-        piece: Piece,
+        side: Side,
+        kind: SlidingPieceType,
         friendly: Bitboard,
         opposition: Bitboard,
     ) -> Vec<Move> {
+        let piece = Piece {
+            kind: PieceType::from(kind),
+            side,
+        };
         let mut legal_moves = Vec::new();
 
         for offset in piece.kind.offsets() {

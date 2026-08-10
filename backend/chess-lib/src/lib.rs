@@ -9,7 +9,7 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
 };
 
-use strum::{EnumCount, EnumIter, IntoEnumIterator};
+use strum::{Display, EnumCount, EnumIter, IntoEnumIterator};
 
 use crate::{
     fen::FENString,
@@ -268,7 +268,7 @@ impl Side {
     }
 }
 
-#[derive(EnumCount, EnumIter, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(EnumCount, EnumIter, Clone, Copy, Debug, Display, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PieceType {
     King = 0,
     Knight = 1,
