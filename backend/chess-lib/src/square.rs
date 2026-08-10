@@ -120,7 +120,7 @@ impl Square {
             .expect("Converting square index to rank should not be invalid")
     }
 
-    pub(super) fn try_offset(&self, offset: Offset) -> anyhow::Result<Self> {
+    pub(super) fn try_offset(&self, offset: &Offset) -> anyhow::Result<Self> {
         let file = self.file() as i8 + offset.file.value();
         let rank = self.rank() as i8 + offset.rank.value();
 
@@ -560,23 +560,23 @@ mod tests {
 
     #[test]
     fn try_offset() {
-        let result = Square::A1.try_offset(Offset::NORTH);
+        let result = Square::A1.try_offset(&Offset::NORTH);
         assert!(result.is_ok(), "shifting north failed: {:?}", result.err());
         assert_eq!(result.expect("shift should succeed"), Square::A2);
 
-        let result = Square::A2.try_offset(Offset::SOUTH);
+        let result = Square::A2.try_offset(&Offset::SOUTH);
         assert!(result.is_ok(), "shifting south failed: {:?}", result.err());
         assert_eq!(result.expect("shift should succeed"), Square::A1);
 
-        let result = Square::A1.try_offset(Offset::EAST);
+        let result = Square::A1.try_offset(&Offset::EAST);
         assert!(result.is_ok(), "shifting east failed: {:?}", result.err());
         assert_eq!(result.expect("shift should succeed"), Square::B1);
 
-        let result = Square::B1.try_offset(Offset::WEST);
+        let result = Square::B1.try_offset(&Offset::WEST);
         assert!(result.is_ok(), "shifting west failed: {:?}", result.err());
         assert_eq!(result.expect("shift should succeed"), Square::A1);
 
-        let result = Square::B4.try_offset(Offset::NORTH_WEST);
+        let result = Square::B4.try_offset(&Offset::NORTH_WEST);
         assert!(
             result.is_ok(),
             "shifting northwest failed: {:?}",
@@ -584,10 +584,10 @@ mod tests {
         );
         assert_eq!(result.expect("shift should succeed"), Square::A5);
 
-        let result = Square::A8.try_offset(Offset::NORTH);
+        let result = Square::A8.try_offset(&Offset::NORTH);
         assert!(result.is_err(), "shifting past board should fail");
 
-        let result = Square::A1.try_offset(Offset::SOUTH);
+        let result = Square::A1.try_offset(&Offset::SOUTH);
         assert!(result.is_err(), "shifting below board should fail");
     }
 }

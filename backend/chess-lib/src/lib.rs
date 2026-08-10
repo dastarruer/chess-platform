@@ -14,7 +14,7 @@ use strum::{EnumCount, EnumIter, IntoEnumIterator};
 use crate::{
     fen::FENString,
     moves::{Move, MoveGenerator},
-    square::Square,
+    square::{Offset, Square},
 };
 
 pub struct Chessboard {
@@ -276,6 +276,42 @@ pub enum PieceType {
     Rook = 3,
     Queen = 4,
     Pawn = 5,
+}
+
+impl PieceType {
+    pub(crate) fn offsets(&self) -> &'static [Offset] {
+        match self {
+            PieceType::Rook => &[Offset::NORTH, Offset::SOUTH, Offset::EAST, Offset::WEST],
+            PieceType::Bishop => &[
+                Offset::NORTH_WEST,
+                Offset::NORTH_EAST,
+                Offset::SOUTH_WEST,
+                Offset::SOUTH_EAST,
+            ],
+            PieceType::Queen | PieceType::King => &[
+                Offset::NORTH,
+                Offset::SOUTH,
+                Offset::EAST,
+                Offset::WEST,
+                Offset::NORTH_WEST,
+                Offset::NORTH_EAST,
+                Offset::SOUTH_WEST,
+                Offset::SOUTH_EAST,
+            ],
+            PieceType::Knight => &[
+                Offset::TWO_UP_ONE_LEFT,
+                Offset::TWO_UP_ONE_RIGHT,
+                Offset::TWO_RIGHT_ONE_UP,
+                Offset::TWO_RIGHT_ONE_DOWN,
+                Offset::TWO_DOWN_ONE_LEFT,
+                Offset::TWO_DOWN_ONE_RIGHT,
+                Offset::TWO_LEFT_ONE_UP,
+                Offset::TWO_LEFT_ONE_DOWN,
+            ],
+            // handled separately, has its own rules
+            PieceType::Pawn => &[],
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
